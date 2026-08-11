@@ -3,267 +3,52 @@
  *
  * .docx export via the `docx` package.
  *
- * Two ways a Pane's content can reach this exporter:
- *  1. Fresh from a loaded file, never touched in the Edit tab: we still
- *     have the original Markdown text, so we build the docx structure
- *     from `marked.lexer()`'s token tree (`tokensToBlocks`) - per
- *     PRODUCT-SPEC.md Section 3, this avoids trying to reverse-engineer
- *     structure out of rendered HTML.
- *  2. Edited in the Edit tab: the Edit tab is a contenteditable region
- *     (see src/pane.ts for why HTML, not Markdown, is that tab's source
- *     of truth), so there is no Markdown text for the edited result -
- *     `execCommand` mutates HTML directly. For this path we walk the
- *     live contenteditable DOM instead (`elementToBlocks`).
- *
- * Both paths converge on the same intermediate representation
- * (`DocxBlock[]` / `DocxRun[]`), and exactly one function
- * (`blocksToDocxElements`) turns that IR into actual `docx` package
- * objects. So there is a single place that maps "heading / paragraph /
- * bold / italic / list" semantics onto docx.js constructs, regardless of
- * which of the two paths produced the IR.
+ * The Markdown-structure parsing (both the deterministic marked.lexer
+ * path and the best-effort live-DOM path) lives in ../document-model.ts,
+ * shared with the .json exporter - see that module's header comment for
+ * why. This file's only job is turning that shared IR into real `docx`
+ * package objects (Table/TableRow/TableCell, numbered/bulleted
+ * Paragraphs, etc.) - the "IR -> docx.js" mapping is defined exactly
+ * once, in `blocksToDocxElements` below.
  */
 
-import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
-import type { Token, Tokens } from "../markdown";
+import {
+  AlignmentType,
+  BorderStyle,
+  Document,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  ShadingType,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType,
+} from "docx";
+import type { IParagraphOptions } from "docx";
+import type { Block, InlineRun, ListItem, TableCell as IrTableCell } from "../document-model";
+import { blocksFromElement, blocksFromTokens } from "../document-model";
 
-export interface DocxRun {
-  text: string;
-  bold?: boolean;
-  italics?: boolean;
-  underline?: boolean;
-  strike?: boolean;
-  highlight?: string;
-}
+// Re-exported for callers/tests that still want the docx-flavored names.
+export { blocksFromTokens as tokensToBlocks, blocksFromElement as elementToBlocks };
+export type { Block as DocxBlock, InlineRun as DocxRun };
 
-export type DocxBlock =
-  | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; runs: DocxRun[] }
-  | { kind: "paragraph"; runs: DocxRun[] }
-  | { kind: "listItem"; ordered: boolean; runs: DocxRun[] };
-
-// ---------------------------------------------------------------------
-// Path 1: Markdown token tree (marked.lexer output) -> DocxBlock[]
-// ---------------------------------------------------------------------
-
-/** Pure: convert marked's token tree into our docx-agnostic IR. */
-export function tokensToBlocks(tokens: Token[]): DocxBlock[] {
-  const blocks: DocxBlock[] = [];
-  for (const token of tokens) {
-    appendTokenBlocks(token, blocks);
-  }
-  return blocks;
-}
-
-function appendTokenBlocks(token: Token, blocks: DocxBlock[]): void {
-  switch (token.type) {
-    case "heading": {
-      const heading = token as Tokens.Heading;
-      const level = Math.min(6, Math.max(1, heading.depth)) as 1 | 2 | 3 | 4 | 5 | 6;
-      blocks.push({ kind: "heading", level, runs: inlineTokensToRuns(heading.tokens ?? []) });
-      break;
-    }
-    case "paragraph": {
-      const paragraph = token as Tokens.Paragraph;
-      blocks.push({ kind: "paragraph", runs: inlineTokensToRuns(paragraph.tokens ?? []) });
-      break;
-    }
-    case "list": {
-      const list = token as Tokens.List;
-      for (const item of list.items) {
-        const runs = inlineTokensToRuns(flattenListItemInline(item));
-        blocks.push({ kind: "listItem", ordered: list.ordered === true, runs });
-      }
-      break;
-    }
-    case "blockquote": {
-      const blockquote = token as Tokens.Blockquote;
-      for (const inner of blockquote.tokens ?? []) {
-        appendTokenBlocks(inner, blocks);
-      }
-      break;
-    }
-    case "space":
-      break;
-    default: {
-      // Fallback: render anything else (code blocks, hr, html, etc.) as a
-      // plain paragraph of its raw text so nothing silently disappears.
-      const text = "text" in token && typeof token.text === "string" ? token.text : token.raw;
-      if (text && text.trim().length > 0) {
-        blocks.push({ kind: "paragraph", runs: [{ text }] });
-      }
-    }
-  }
-}
-
-function flattenListItemInline(item: Tokens.ListItem): Token[] {
-  const inline: Token[] = [];
-  for (const child of item.tokens ?? []) {
-    if (child.type === "text" && "tokens" in child && child.tokens) {
-      inline.push(...child.tokens);
-    } else if (child.type === "text") {
-      inline.push(child);
-    }
-    // Nested lists/paragraphs inside list items are skipped for v1's
-    // "basic fidelity" bar - flattening to the item's own text is enough.
-  }
-  return inline;
-}
-
-function inlineTokensToRuns(tokens: Token[], formatting: Partial<DocxRun> = {}): DocxRun[] {
-  const runs: DocxRun[] = [];
-  for (const token of tokens) {
-    switch (token.type) {
-      case "strong":
-        runs.push(...inlineTokensToRuns((token as Tokens.Strong).tokens, { ...formatting, bold: true }));
-        break;
-      case "em":
-        runs.push(...inlineTokensToRuns((token as Tokens.Em).tokens, { ...formatting, italics: true }));
-        break;
-      case "del":
-        runs.push(...inlineTokensToRuns((token as Tokens.Del).tokens, { ...formatting, strike: true }));
-        break;
-      case "codespan":
-        runs.push({ ...formatting, text: (token as Tokens.Codespan).text });
-        break;
-      case "link":
-        runs.push(...inlineTokensToRuns((token as Tokens.Link).tokens, formatting));
-        break;
-      case "text": {
-        const textToken = token as Tokens.Text;
-        if (textToken.tokens && textToken.tokens.length > 0) {
-          runs.push(...inlineTokensToRuns(textToken.tokens, formatting));
-        } else {
-          runs.push({ ...formatting, text: textToken.text });
-        }
-        break;
-      }
-      case "br":
-        runs.push({ ...formatting, text: "\n" });
-        break;
-      default: {
-        if ("text" in token && typeof token.text === "string") {
-          runs.push({ ...formatting, text: token.text });
-        }
-      }
-    }
-  }
-  return runs;
-}
-
-// ---------------------------------------------------------------------
-// Path 2: live contenteditable DOM -> DocxBlock[]
-// ---------------------------------------------------------------------
-
-const HEADING_TAGS: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = {
-  H1: 1,
-  H2: 2,
-  H3: 3,
-  H4: 4,
-  H5: 5,
-  H6: 6,
-};
-
-/** Pure(ish - takes a detached-safe DOM element): walk edited HTML into IR. */
-export function elementToBlocks(root: Element): DocxBlock[] {
-  const blocks: DocxBlock[] = [];
-  for (const child of Array.from(root.children)) {
-    appendElementBlocks(child, blocks);
-  }
-  // Root has no element children (e.g. plain text was typed directly) -
-  // treat the whole thing as one paragraph.
-  if (blocks.length === 0 && (root.textContent ?? "").trim().length > 0) {
-    blocks.push({ kind: "paragraph", runs: elementInlineRuns(root, {}) });
-  }
-  return blocks;
-}
-
-function appendElementBlocks(el: Element, blocks: DocxBlock[]): void {
-  const tag = el.tagName;
-  if (tag in HEADING_TAGS) {
-    blocks.push({ kind: "heading", level: HEADING_TAGS[tag]!, runs: elementInlineRuns(el, {}) });
-    return;
-  }
-  if (tag === "P" || tag === "DIV") {
-    const runs = elementInlineRuns(el, {});
-    if (runs.some((r) => r.text.trim().length > 0)) {
-      blocks.push({ kind: "paragraph", runs });
-    }
-    return;
-  }
-  if (tag === "BLOCKQUOTE") {
-    for (const child of Array.from(el.children)) {
-      appendElementBlocks(child, blocks);
-    }
-    return;
-  }
-  if (tag === "UL" || tag === "OL") {
-    const ordered = tag === "OL";
-    for (const li of Array.from(el.children)) {
-      if (li.tagName !== "LI") continue;
-      blocks.push({ kind: "listItem", ordered, runs: elementInlineRuns(li, {}) });
-    }
-    return;
-  }
-  // Unknown block-level wrapper: recurse into its children.
-  if (el.children.length > 0) {
-    for (const child of Array.from(el.children)) {
-      appendElementBlocks(child, blocks);
-    }
-  } else {
-    const text = el.textContent ?? "";
-    if (text.trim().length > 0) {
-      blocks.push({ kind: "paragraph", runs: [{ text }] });
-    }
-  }
-}
-
-function elementInlineRuns(el: Element, formatting: Partial<DocxRun>): DocxRun[] {
-  const runs: DocxRun[] = [];
-  for (const node of Array.from(el.childNodes)) {
-    if (node.nodeType === 3 /* TEXT_NODE */) {
-      const text = node.textContent ?? "";
-      if (text.length > 0) runs.push({ ...formatting, text });
-      continue;
-    }
-    if (node.nodeType !== 1 /* ELEMENT_NODE */) continue;
-    const child = node as Element;
-    const next: Partial<DocxRun> = { ...formatting };
-    const tag = child.tagName;
-    if (tag === "B" || tag === "STRONG") next.bold = true;
-    if (tag === "I" || tag === "EM") next.italics = true;
-    if (tag === "U") next.underline = true;
-    if (tag === "S" || tag === "STRIKE" || tag === "DEL") next.strike = true;
-    const bg = (child as HTMLElement).style?.backgroundColor;
-    if (bg) next.highlight = bg;
-    if (tag === "BR") {
-      runs.push({ ...formatting, text: "\n" });
-      continue;
-    }
-    runs.push(...elementInlineRuns(child, next));
-  }
-  return runs;
-}
-
-// ---------------------------------------------------------------------
-// IR -> actual docx.js document
-// ---------------------------------------------------------------------
-
-const HEADING_LEVELS = [
-  HeadingLevel.HEADING_1,
-  HeadingLevel.HEADING_2,
-  HeadingLevel.HEADING_3,
-  HeadingLevel.HEADING_4,
-  HeadingLevel.HEADING_5,
-  HeadingLevel.HEADING_6,
-];
-
-function runToTextRun(run: DocxRun): TextRun {
+function runToTextRun(run: InlineRun, size: number): TextRun {
   return new TextRun({
     text: run.text,
+    font: run.code ? CODE_FONT_FAMILY : FONT_FAMILY,
+    size,
     bold: run.bold,
     italics: run.italics,
     underline: run.underline ? {} : undefined,
     strike: run.strike,
     shading: run.highlight ? { fill: normalizeHex(run.highlight) } : undefined,
+    // docx has no native "this run is a hyperlink" flag without wrapping
+    // it in an ExternalHyperlink; we keep href fidelity simple (visually
+    // distinguished, underlined) rather than pulling in relationship
+    // machinery for a v1 structural exporter.
+    style: run.href ? "Hyperlink" : undefined,
   });
 }
 
@@ -280,40 +65,250 @@ function normalizeHex(color: string): string {
   return "FFFF00";
 }
 
-/** Pure: turn IR blocks into `docx` Paragraph objects. */
-export function blocksToDocxElements(blocks: DocxBlock[]): Paragraph[] {
-  return blocks.map((block) => {
-    const runs = (block.runs.length > 0 ? block.runs : [{ text: "" }]).map(runToTextRun);
-    if (block.kind === "heading") {
-      return new Paragraph({ heading: HEADING_LEVELS[block.level - 1], children: runs });
-    }
-    if (block.kind === "listItem") {
-      return new Paragraph({
-        bullet: block.ordered ? undefined : { level: 0 },
-        numbering: block.ordered ? { reference: "noted-numbered-list", level: 0 } : undefined,
-        children: runs,
-      });
-    }
-    return new Paragraph({ children: runs });
+// Matches Word's own modern defaults (11pt Calibri, 1.15 line spacing) -
+// deliberately NOT left unset, since docx's actual fallback when nothing
+// specifies a font anywhere is the legacy Word default (Times New Roman),
+// which is what was silently leaking through before this fix. Sizes are in
+// half-points (docx's unit for font size) per the `docx` package's API.
+const FONT_FAMILY = "Calibri";
+const CODE_FONT_FAMILY = "Consolas";
+const BODY_SIZE = 22; // 11pt
+const HEADING_SIZES: Record<1 | 2 | 3 | 4 | 5 | 6, number> = {
+  1: 32, // 16pt
+  2: 28, // 14pt
+  3: 26, // 13pt
+  4: 24, // 12pt
+  5: 22, // 11pt (bold differentiates it from body)
+  6: 22,
+};
+
+// Paragraph/list spacing, in twips (1/20 pt) - docx's spacing unit. Applied
+// explicitly on every paragraph rather than left to Word's own per-install
+// "Normal" style default, which is inconsistent across Word versions/OSes
+// and was the source of the reported spacing issues.
+const BODY_SPACING = { line: 276, lineRule: "auto" as const, after: 200 };
+const HEADING_SPACING = { before: 240, after: 120 };
+const LIST_INDENT = { left: 720, hanging: 360 }; // 0.5in indent, 0.25in hanging - Word's own list defaults
+const LIST_LEVEL_STEP = 360; // extra 0.25in indent per nesting level
+const BLOCKQUOTE_INDENT = { left: 720 };
+const CODE_SHADING = { type: ShadingType.CLEAR, fill: "F3F4F6", color: "auto" };
+
+function emptyRunFallback(runs: InlineRun[]): InlineRun[] {
+  return runs.length > 0 ? runs : [{ text: "" }];
+}
+
+function inlineRunsToTextRuns(runs: InlineRun[], size: number): TextRun[] {
+  return emptyRunFallback(runs).map((run) => runToTextRun(run, size));
+}
+
+function headingParagraph(level: 1 | 2 | 3 | 4 | 5 | 6, runs: InlineRun[]): Paragraph {
+  return new Paragraph({
+    heading: HEADING_LEVELS[level - 1],
+    alignment: AlignmentType.LEFT,
+    spacing: HEADING_SPACING,
+    children: inlineRunsToTextRuns(runs, HEADING_SIZES[level]),
   });
 }
 
+function paragraphParagraph(runs: InlineRun[], extra: Partial<IParagraphOptions> = {}): Paragraph {
+  return new Paragraph({
+    alignment: AlignmentType.LEFT,
+    spacing: BODY_SPACING,
+    children: inlineRunsToTextRuns(runs, BODY_SIZE),
+    ...extra,
+  });
+}
+
+function listItemParagraphs(item: ListItem, ordered: boolean, level: number): Paragraph[] {
+  const indent = { left: LIST_INDENT.left + level * LIST_LEVEL_STEP, hanging: LIST_INDENT.hanging };
+  const own = new Paragraph({
+    numbering: { reference: ordered ? "noted-numbered-list" : "noted-bullet-list", level },
+    alignment: AlignmentType.LEFT,
+    spacing: BODY_SPACING,
+    indent,
+    children: inlineRunsToTextRuns(item.runs, BODY_SIZE),
+  });
+  const nested: Paragraph[] = [];
+  for (const child of item.children) {
+    if (child.kind === "list") {
+      nested.push(...listBlockParagraphs(child, level + 1));
+    } else {
+      nested.push(...blockToParagraphs(child));
+    }
+  }
+  return [own, ...nested];
+}
+
+function listBlockParagraphs(block: Extract<Block, { kind: "list" }>, level: number): Paragraph[] {
+  const out: Paragraph[] = [];
+  for (const item of block.items) {
+    out.push(...listItemParagraphs(item, block.ordered, level));
+  }
+  return out;
+}
+
+function codeBlockParagraph(text: string): Paragraph {
+  // A monospace-font paragraph with a shaded background, preserving the
+  // raw code text verbatim (including internal newlines via explicit
+  // line breaks - docx.js has no literal "\n in one TextRun" support).
+  const lines = text.split("\n");
+  const children: TextRun[] = [];
+  lines.forEach((line, i) => {
+    children.push(
+      new TextRun({ text: line, font: CODE_FONT_FAMILY, size: BODY_SIZE, shading: CODE_SHADING, break: i > 0 ? 1 : undefined }),
+    );
+  });
+  return new Paragraph({ alignment: AlignmentType.LEFT, spacing: BODY_SPACING, children });
+}
+
+function thematicBreakParagraph(): Paragraph {
+  return new Paragraph({
+    spacing: BODY_SPACING,
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999" } },
+    children: [],
+  });
+}
+
+function alignmentType(align: "left" | "center" | "right" | null): (typeof AlignmentType)[keyof typeof AlignmentType] | undefined {
+  if (align === "center") return AlignmentType.CENTER;
+  if (align === "right") return AlignmentType.RIGHT;
+  if (align === "left") return AlignmentType.LEFT;
+  return undefined;
+}
+
+function tableCellFromIr(cell: IrTableCell, align: "left" | "center" | "right" | null): TableCell {
+  return new TableCell({
+    width: { size: 100, type: WidthType.AUTO },
+    children: [paragraphParagraph(cell.runs, { alignment: alignmentType(align) })],
+  });
+}
+
+function tableFromIr(block: Extract<Block, { kind: "table" }>): Table {
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: block.header.map((cell, i) => tableCellFromIr(cell, block.align[i] ?? null)),
+  });
+  const bodyRows = block.rows.map(
+    (row) => new TableRow({ children: row.map((cell, i) => tableCellFromIr(cell, block.align[i] ?? null)) }),
+  );
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [headerRow, ...bodyRows],
+  });
+}
+
+function blockquoteParagraphs(block: Extract<Block, { kind: "blockquote" }>): Paragraph[] {
+  const out: Paragraph[] = [];
+  for (const inner of block.blocks) {
+    if (inner.kind === "paragraph" || inner.kind === "heading") {
+      const runs = inner.runs.map((r) => ({ ...r, italics: r.italics ?? true }));
+      out.push(paragraphParagraph(runs, { indent: BLOCKQUOTE_INDENT }));
+    } else {
+      // Nested non-inline block (e.g. a blockquote containing a list) -
+      // render normally but still indented one level, by delegating and
+      // then it keeps its own semantics rather than being flattened.
+      out.push(...blockToParagraphs(inner));
+    }
+  }
+  return out;
+}
+
+/** Turn a single IR block into one or more docx Paragraphs (a Table block
+ * is handled separately since it isn't a Paragraph - see
+ * `blocksToDocxContent`). */
+function blockToParagraphs(block: Block): Paragraph[] {
+  switch (block.kind) {
+    case "heading":
+      return [headingParagraph(block.level, block.runs)];
+    case "paragraph":
+      return [paragraphParagraph(block.runs)];
+    case "blockquote":
+      return blockquoteParagraphs(block);
+    case "codeBlock":
+      return [codeBlockParagraph(block.text)];
+    case "list":
+      return listBlockParagraphs(block, 0);
+    case "thematicBreak":
+      return [thematicBreakParagraph()];
+    case "table":
+      // Tables aren't Paragraphs; callers must special-case them via
+      // `blocksToDocxContent`. Returning [] here keeps this function's
+      // type honest for the (rare) caller that only wants Paragraphs.
+      return [];
+  }
+}
+
+const HEADING_LEVELS = [
+  HeadingLevel.HEADING_1,
+  HeadingLevel.HEADING_2,
+  HeadingLevel.HEADING_3,
+  HeadingLevel.HEADING_4,
+  HeadingLevel.HEADING_5,
+  HeadingLevel.HEADING_6,
+];
+
+/** Pure: turn IR blocks into `docx` section content (Paragraphs and
+ * Tables, in document order). This is the one place that maps IR
+ * semantics onto docx.js constructs. */
+export function blocksToDocxContent(blocks: Block[]): (Paragraph | Table)[] {
+  const content: (Paragraph | Table)[] = [];
+  for (const block of blocks) {
+    if (block.kind === "table") {
+      content.push(tableFromIr(block));
+    } else {
+      content.push(...blockToParagraphs(block));
+    }
+  }
+  return content;
+}
+
+/** Back-compat name: same as `blocksToDocxContent`, for callers/tests
+ * that only care about the (much more common) Paragraph-producing
+ * blocks. Kept because it's part of the existing test surface. */
+export function blocksToDocxElements(blocks: Block[]): (Paragraph | Table)[] {
+  return blocksToDocxContent(blocks);
+}
+
 /** Build a full docx Document from IR blocks. */
-export function buildDocxDocument(blocks: DocxBlock[]): Document {
+export function buildDocxDocument(blocks: Block[]): Document {
   return new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: FONT_FAMILY, size: BODY_SIZE },
+          paragraph: { spacing: BODY_SPACING },
+        },
+      },
+    },
     numbering: {
       config: [
         {
           reference: "noted-numbered-list",
-          levels: [{ level: 0, format: "decimal", text: "%1.", alignment: "start" }],
+          levels: Array.from({ length: 6 }, (_, level) => ({
+            level,
+            format: "decimal" as const,
+            text: "%1.",
+            alignment: AlignmentType.START,
+            style: { paragraph: { indent: { left: LIST_INDENT.left + level * LIST_LEVEL_STEP, hanging: LIST_INDENT.hanging } } },
+          })),
+        },
+        {
+          reference: "noted-bullet-list",
+          levels: Array.from({ length: 6 }, (_, level) => ({
+            level,
+            format: "bullet" as const,
+            text: "•",
+            alignment: AlignmentType.START,
+            style: { paragraph: { indent: { left: LIST_INDENT.left + level * LIST_LEVEL_STEP, hanging: LIST_INDENT.hanging } } },
+          })),
         },
       ],
     },
-    sections: [{ children: blocksToDocxElements(blocks) }],
+    sections: [{ children: blocksToDocxContent(blocks) }],
   });
 }
 
 /** DOM: build a .docx Blob for the given IR blocks. */
-export function docxBlockstoBlob(blocks: DocxBlock[]): Promise<Blob> {
+export function docxBlockstoBlob(blocks: Block[]): Promise<Blob> {
   return Packer.toBlob(buildDocxDocument(blocks));
 }

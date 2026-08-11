@@ -33,7 +33,9 @@
 import { renderMarkdown, lexMarkdown, stripFrontmatter } from "./markdown";
 import { setupFileLoader, type LoadedFile } from "./file-loader";
 import { exportHtml, withExtension, downloadBlob } from "./export/html";
-import { tokensToBlocks, elementToBlocks, docxBlockstoBlob } from "./export/docx";
+import { docxBlockstoBlob } from "./export/docx";
+import { exportJson } from "./export/json";
+import { blocksFromElement, blocksFromTokens, type Block } from "./document-model";
 import type { Theme } from "./theme";
 
 export type PaneMode = "view" | "edit";
@@ -111,6 +113,7 @@ export class Pane {
         <button type="button" class="btn export-btn" data-export="html" disabled>.html</button>
         <button type="button" class="btn export-btn" data-export="pdf" disabled>.pdf</button>
         <button type="button" class="btn export-btn" data-export="docx" disabled>.docx</button>
+        <button type="button" class="btn export-btn" data-export="json" disabled>.json</button>
       </div>
       <div class="edit-toolbar" hidden>
         <button type="button" class="fmt-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
@@ -251,11 +254,24 @@ export class Pane {
       return;
     }
     if (format === "docx") {
-      const blocks = this.edited ? elementToBlocks(this.contentEl) : tokensToBlocks(lexMarkdown(this.displayMarkdown));
-      const blob = await docxBlockstoBlob(blocks);
+      const blob = await docxBlockstoBlob(this.buildDocumentModel());
       downloadBlob(withExtension(title, "docx"), blob, blob.type);
       return;
     }
+    if (format === "json") {
+      exportJson(title, this.buildDocumentModel());
+      return;
+    }
+  }
+
+  /** The single place that decides whether the structural exporters
+   * (.docx, .json) should read from the original Markdown token tree or
+   * from the live edited DOM - see the module doc comment above for why
+   * those are the two possible sources. Both exporters need the exact
+   * same IR for the exact same reason, so this branch exists exactly
+   * once rather than being duplicated per export format. */
+  private buildDocumentModel(): Block[] {
+    return this.edited ? blocksFromElement(this.contentEl) : blocksFromTokens(lexMarkdown(this.displayMarkdown));
   }
 
   private printPane(): void {

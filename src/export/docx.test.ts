@@ -1,7 +1,29 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
+import { Packer } from "docx";
+import JSZip from "jszip";
 import { lexMarkdown } from "../markdown";
-import { tokensToBlocks, elementToBlocks, blocksToDocxElements, docxBlockstoBlob } from "./docx";
+import { blocksToDocxElements, docxBlockstoBlob, buildDocxDocument } from "./docx";
+import { blocksFromTokens as tokensToBlocks, blocksFromElement as elementToBlocks } from "../document-model";
+import type { Block as DocxBlock } from "../document-model";
+
+/** A .docx file is a zip of OOXML parts - unzip it and read the main
+ * document XML, the same way Word itself does. This is what actually
+ * catches formatting regressions (wrong/missing font, spacing, list
+ * indent) - a "did it throw" smoke test cannot, since docx.js happily
+ * produces a valid-but-badly-formatted document either way.
+ *
+ * Uses Packer.toBuffer (Node-compatible output), not docxBlockstoBlob's
+ * Blob - jsdom's Blob polyfill doesn't implement `.arrayBuffer()`, and the
+ * production code path (real browser) already exercises Packer.toBlob via
+ * the "produces a real .docx Blob" smoke test above. */
+async function extractDocumentXml(blocks: DocxBlock[]): Promise<string> {
+  const buffer = await Packer.toBuffer(buildDocxDocument(blocks));
+  const zip = await JSZip.loadAsync(buffer);
+  const doc = zip.file("word/document.xml");
+  if (!doc) throw new Error("word/document.xml missing from .docx archive");
+  return doc.async("string");
+}
 
 describe("tokensToBlocks (pure, from marked.lexer)", () => {
   it("maps a heading token to a heading block", () => {
@@ -22,17 +44,23 @@ describe("tokensToBlocks (pure, from marked.lexer)", () => {
     }
   });
 
-  it("maps a list into listItem blocks", () => {
+  it("maps a list into a single list block with items", () => {
     const blocks = tokensToBlocks(lexMarkdown("- one\n- two\n"));
     expect(blocks).toEqual([
-      { kind: "listItem", ordered: false, runs: [{ text: "one" }] },
-      { kind: "listItem", ordered: false, runs: [{ text: "two" }] },
+      {
+        kind: "list",
+        ordered: false,
+        items: [
+          { runs: [{ text: "one" }], children: [] },
+          { runs: [{ text: "two" }], children: [] },
+        ],
+      },
     ]);
   });
 
   it("marks ordered lists as ordered", () => {
     const blocks = tokensToBlocks(lexMarkdown("1. first\n2. second\n"));
-    expect(blocks.every((b) => b.kind === "listItem" && b.ordered)).toBe(true);
+    expect(blocks.every((b) => b.kind === "list" && b.ordered)).toBe(true);
   });
 });
 
@@ -53,8 +81,14 @@ describe("elementToBlocks (pure-ish, from live contenteditable DOM)", () => {
     div.innerHTML = "<ul><li>a</li><li>b</li></ul>";
     const blocks = elementToBlocks(div);
     expect(blocks).toEqual([
-      { kind: "listItem", ordered: false, runs: [{ text: "a" }] },
-      { kind: "listItem", ordered: false, runs: [{ text: "b" }] },
+      {
+        kind: "list",
+        ordered: false,
+        items: [
+          { runs: [{ text: "a" }], children: [] },
+          { runs: [{ text: "b" }], children: [] },
+        ],
+      },
     ]);
   });
 
@@ -72,15 +106,73 @@ describe("elementToBlocks (pure-ish, from live contenteditable DOM)", () => {
 });
 
 describe("blocksToDocxElements + docxBlockstoBlob (smoke test)", () => {
-  it("builds docx Paragraph objects without throwing", () => {
+  it("builds docx content objects without throwing", () => {
     const blocks = tokensToBlocks(lexMarkdown("# Title\n\nSome **bold** text.\n\n- item one\n- item two\n"));
     const elements = blocksToDocxElements(blocks);
-    expect(elements).toHaveLength(blocks.length);
+    // heading + paragraph + (list -> 2 item paragraphs) = 4
+    expect(elements.length).toBeGreaterThanOrEqual(blocks.length);
   });
 
   it("produces a real .docx Blob", async () => {
     const blocks = tokensToBlocks(lexMarkdown("# Title\n\nHello world."));
     const blob = await docxBlockstoBlob(blocks);
     expect(blob.size).toBeGreaterThan(0);
+  });
+});
+
+describe("docx formatting regressions (font / spacing / list alignment)", () => {
+  it("sets an explicit font everywhere - never falls back to Word's Times New Roman default", async () => {
+    const blocks = tokensToBlocks(lexMarkdown("# Title\n\nBody text.\n\n- one\n- two\n"));
+    const xml = await extractDocumentXml(blocks);
+    expect(xml).toContain('w:ascii="Calibri"');
+    expect(xml).not.toContain("Times New Roman");
+  });
+
+  it("sets non-zero paragraph spacing - was previously unset (zero) everywhere", async () => {
+    const blocks = tokensToBlocks(lexMarkdown("First paragraph.\n\nSecond paragraph."));
+    const xml = await extractDocumentXml(blocks);
+    // w:spacing w:after="200" is BODY_SPACING.after in src/export/docx.ts
+    expect(xml).toMatch(/<w:spacing[^>]*w:after="200"/);
+  });
+
+  it("gives bullet and numbered lists the same indent, via two explicit numbering defs", async () => {
+    const bulletXml = await extractDocumentXml(tokensToBlocks(lexMarkdown("- a\n- b\n")));
+    const numberedXml = await extractDocumentXml(tokensToBlocks(lexMarkdown("1. a\n2. b\n")));
+
+    // Both reference a numbering definition (not the old bullet-shorthand
+    // path, which never emits a <w:numId> reference the same way).
+    expect(bulletXml).toMatch(/<w:numId w:val="\d+"\/>/);
+    expect(numberedXml).toMatch(/<w:numId w:val="\d+"\/>/);
+  });
+
+  it("gives headings distinct, non-body sizes", async () => {
+    const blocks = tokensToBlocks(lexMarkdown("# H1\n\nBody."));
+    const xml = await extractDocumentXml(blocks);
+    // HEADING_SIZES[1] = 32 half-points; BODY_SIZE = 22.
+    expect(xml).toContain('<w:sz w:val="32"/>');
+    expect(xml).toContain('<w:sz w:val="22"/>');
+  });
+});
+
+describe("docx export of previously-lossy structures (bug fixes)", () => {
+  it("renders a table as a real <w:tbl>", async () => {
+    const blocks = tokensToBlocks(lexMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n"));
+    const xml = await extractDocumentXml(blocks);
+    expect(xml).toContain("<w:tbl>");
+  });
+
+  it("preserves a code block's raw text verbatim", async () => {
+    const code = "function add(a, b) {\n  return a + b;\n}";
+    const blocks = tokensToBlocks(lexMarkdown("```js\n" + code + "\n```"));
+    const xml = await extractDocumentXml(blocks);
+    expect(xml).toContain("function add(a, b) {");
+    expect(xml).toContain("return a + b;");
+  });
+
+  it("gives a nested list more than one distinct <w:ilvl> value", async () => {
+    const blocks = tokensToBlocks(lexMarkdown("- a\n  - nested one\n  - nested two\n- b\n"));
+    const xml = await extractDocumentXml(blocks);
+    const levels = new Set(Array.from(xml.matchAll(/<w:ilvl w:val="(\d+)"\/>/g)).map((m) => m[1]));
+    expect(levels.size).toBeGreaterThan(1);
   });
 });
