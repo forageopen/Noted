@@ -180,6 +180,15 @@ body {
   background: var(--ds-surface);
 }
 
+.app-footer a {
+  color: var(--ds-brand-bold);
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+}
+
 .app-title {
   font-family: "Erica One", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 22px;

@@ -31,6 +31,11 @@ See `docs/product/PRODUCT-SPEC.md` Section 3 for the full scope (and what's deli
 
 Read `REPO-STANDARD.md` before modifying this repository.
 
+## Credits
+
+- **Adam Rosman** — Founder, Forage. Product direction and every material decision recorded in this repo (see `docs/product/PRODUCT-DECISIONS.md`).
+- **Claude (Anthropic)** — AI pair-programmer. Drafted the docs, app, and everything currently in `src/` under the Founder's direction. Flagging the honest mismatch rather than papering over it: GitHub's "Contributors" graph is commit-authorship-based and tied to a real account, which Claude doesn't have - so this line is the accurate record, not that graph. Commits authored with Claude's involvement carry a `Co-Authored-By: Claude <noreply@anthropic.com>` trailer.
+
 ## License
 
 MIT - see [`LICENSE`](LICENSE).
