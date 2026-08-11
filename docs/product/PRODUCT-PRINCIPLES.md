@@ -21,7 +21,12 @@ integrity: >
   pointer, per that repo's own `never_paraphrase` convention. Sections 3-5
   are specific to Noted and have no human-kernel equivalent (human-kernel's
   "Three Laws of the Kernel" and "Mission Filter (Evidence Vault)" are about
-  a personal-pattern-compiler product and do not apply here).
+  a personal-pattern-compiler product and do not apply here). Section 1's
+  original ABIM subsections (1-18) and Section 2 (MVD) remain byte-identical
+  to the shared source - the one addition, Section 19 (Practical Operating
+  Loop), is a new, clearly-marked addendum applied identically across the
+  Noted, human-kernel, and S2-Week3 copies (2026-08-12), not a modification
+  of the existing reproduced text.
 never_paraphrase: true
 ---
 
@@ -287,7 +292,23 @@ OUTCOME
 → NEXT MVD
 ```
 
-## 2. MVD — Minimum Viable Delivery
+### 19. Practical Operating Loop (Applied)
+
+**Addendum, not a replacement.** The operating loop above (Sections 2 and 18) is the abstract model. In practice, delivery under this method has converged on a more concrete five-step loop, stated here because it's how work actually gets driven day to day, and because evidence from applying it (see the Noted project's `docs/retrospective/RETROSPECTIVE-ABIM-PROCESS-MAPPING.md` for the full account) surfaced one real gap worth codifying rather than leaving as an unstated habit.
+
+```text
+Think of a feature
+  → Rapid prototyping
+  → Realign with closest in industry by feature & tool
+  → Redesign UI so it's coherent with the rest & follow the design system
+  → Verify (test + typecheck/build + a real-environment check for anything
+     that can't be faithfully verified any other way)
+  → Commit & push
+```
+
+Mapped to the abstract model above: "think of a feature" is Outcome-Before-Feature (Section 3) compressed into a single step; "realign with closest in industry by feature & tool" is Resource Arbitrage (Section 7) and Pattern Mining (Section 8) made concrete and named explicitly rather than left implicit; "redesign UI for design-system coherence" is MVD's own "cohesive design system" requirement (Section 2) applied per-feature, not just at the whole-product level; "commit & push" is Forward Execution's release step (Section 6).
+
+**The step worth naming explicitly: Verify.** A stated loop that goes straight from "redesign UI" to "commit & push" has no named place for validation - and `BUILT ≠ VALIDATED` (Section 11) is not satisfied by a feature merely looking finished. Concretely, in the evidence this addendum is based on, the costliest bugs shipped were ones that looked complete at exactly the point a loop without an explicit Verify step would stop - they were only caught because a verification pass (automated tests, typechecking, a full build, and a real-browser/real-environment check for anything a synthetic test environment can't faithfully model) was inserted as a matter of habit, not because the stated loop required it. Restated with the step made explicit is the version above; omitting it is the anti-pattern to watch for (see Section 16, `False completion`).
 
 **Minimum Viable Delivery** is the smallest complete delivery that produces the intended user outcome.
 

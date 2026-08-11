@@ -10,13 +10,14 @@ Open, read, write, compare, annotate, and export your documents in one place. Ev
 
 ## v1 feature set
 
-- **Load**: drag-and-drop or browse for a `.md` file.
+- **Load**: drag-and-drop or browse for a `.md` or `.docx` file.
 - **Viewer**: rendered Markdown, default view.
 - **Copy**: one click to copy the file's content.
 - **Theme**: Sakura (light pink/burgundy) / Cherry (charcoal/neon pink) toggle.
-- **Edit tab**: highlighter + bold/italic/underline/strikethrough.
-- **Export**: `.html`, `.pdf`, `.docx`.
+- **Edit tab**: 18-color highlighter, paragraph styles, bold/italic/underline/strikethrough.
+- **Export**: `.html`, `.pdf`, `.docx`, `.md`, `.json`.
 - **Dual window**: two independent panes, side by side, for comparing two files.
+- **Offline mode**: opt-in, self-updating cache.
 
 See `docs/product/PRODUCT-SPEC.md` Section 3 for the full scope (and what's deliberately out of v1).
 

@@ -24,15 +24,22 @@ GitHub Pages static app - browser-native, TypeScript, no backend. No further arc
 
 ## 2. Product Roadmap
 
-### Phase 0: v1 (committed, delivered as one pass - PRODUCT-DECISIONS.md ADR-001)
+### Phase 0: v1.0.0 (committed, delivered as one pass - PRODUCT-DECISIONS.md ADR-001)
 
 - Drag-and-drop / browse-to-load a `.md` file
 - Viewer (rendered Markdown)
 - Copy button
-- Light/dark theme toggle
-- Edit tab (highlighter + bold/italic/underline/strikethrough)
-- Export to `.html`, `.pdf`, `.docx`
+- Sakura/Cherry theme toggle
+- Edit tab (18-color highlighter with auto text-contrast, bold/italic/underline/strikethrough, paragraph styles)
+- Export to `.html`, `.pdf`, `.docx`, `.md`, `.json`
 - Dual-pane compare (two independent load/view/edit panes side by side)
+- Offline mode (opt-in, self-updating cache)
+
+### Phase 0.1: v1.1.0 (committed, delivered - PRODUCT-DECISIONS.md ADR-003/ADR-004)
+
+- `.docx` upload (opens like any other file, converted via the shared document IR)
+- Footer visitor counter (real, non-simulated - see ADR-004 for the recorded privacy tradeoff)
+- Auto-hide footer (taskbar-style: hover to reveal, click to lock)
 
 ### Phase 1: Draft, not committed
 
