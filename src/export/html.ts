@@ -31,10 +31,10 @@ ${bodyHtml}
 }
 
 const STANDALONE_PALETTES: Record<Theme, { bg: string; fg: string; muted: string; border: string; codeBg: string; linkColor: string }> = {
-  light: { bg: "#ffffff", fg: "#1b1d21", muted: "#5f6368", border: "#dcdfe3", codeBg: "#f3f4f6", linkColor: "#1a56db" },
-  dark: { bg: "#1b1d21", fg: "#e6e6e6", muted: "#9aa0a6", border: "#3a3d42", codeBg: "#26282c", linkColor: "#8ab4f8" },
-  // Charcoal grey-black + neon pink, matching styles.css's html[data-theme="sakura"] block.
-  sakura: { bg: "#141316", fg: "#ece7ea", muted: "#a99aa1", border: "#2c262a", codeBg: "#1c181c", linkColor: "#ff5ec2" },
+  // Light pink + burgundy, matching styles.css's :root (Sakura's) block.
+  sakura: { bg: "#fff0f5", fg: "#4a0e2e", muted: "#8a4a63", border: "#f3c6d6", codeBg: "#f8e1ea", linkColor: "#c2185b" },
+  // Charcoal grey-black + neon pink, matching styles.css's html[data-theme="cherry"] block.
+  cherry: { bg: "#141316", fg: "#ece7ea", muted: "#a99aa1", border: "#2c262a", codeBg: "#1c181c", linkColor: "#ff5ec2" },
 };
 
 function standaloneCss(theme: Theme): string {

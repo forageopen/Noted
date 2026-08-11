@@ -3,30 +3,30 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { toggleTheme, resolveInitialTheme, getStoredTheme, persistTheme, applyTheme } from "./theme";
 
 describe("toggleTheme (pure)", () => {
-  it("cycles light -> dark -> sakura -> light", () => {
-    expect(toggleTheme("light")).toBe("dark");
-    expect(toggleTheme("dark")).toBe("sakura");
-    expect(toggleTheme("sakura")).toBe("light");
+  it("flips sakura <-> cherry", () => {
+    expect(toggleTheme("sakura")).toBe("cherry");
+    expect(toggleTheme("cherry")).toBe("sakura");
   });
 });
 
 describe("resolveInitialTheme (pure)", () => {
   it("prefers a valid stored value over OS preference", () => {
-    expect(resolveInitialTheme("dark", false)).toBe("dark");
-    expect(resolveInitialTheme("light", true)).toBe("light");
+    expect(resolveInitialTheme("cherry", false)).toBe("cherry");
+    expect(resolveInitialTheme("sakura", true)).toBe("sakura");
   });
 
   it("falls back to OS preference when nothing stored", () => {
-    expect(resolveInitialTheme(null, true)).toBe("dark");
-    expect(resolveInitialTheme(null, false)).toBe("light");
+    expect(resolveInitialTheme(null, true)).toBe("cherry");
+    expect(resolveInitialTheme(null, false)).toBe("sakura");
   });
 
   it("falls back to OS preference when stored value is invalid", () => {
-    expect(resolveInitialTheme("neon", true)).toBe("dark");
+    expect(resolveInitialTheme("neon", true)).toBe("cherry");
   });
 
-  it("accepts a stored sakura value", () => {
-    expect(resolveInitialTheme("sakura", false)).toBe("sakura");
+  it("rejects retired theme names (light/dark no longer exist)", () => {
+    expect(resolveInitialTheme("light", false)).toBe("sakura");
+    expect(resolveInitialTheme("dark", true)).toBe("cherry");
   });
 });
 
@@ -37,16 +37,14 @@ describe("theme persistence (jsdom)", () => {
 
   it("round-trips through localStorage", () => {
     expect(getStoredTheme()).toBeNull();
-    persistTheme("dark");
-    expect(getStoredTheme()).toBe("dark");
+    persistTheme("cherry");
+    expect(getStoredTheme()).toBe("cherry");
   });
 
   it("applyTheme sets data-theme on <html>", () => {
-    applyTheme("dark");
-    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    applyTheme("cherry");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("cherry");
     applyTheme("sakura");
     expect(document.documentElement.getAttribute("data-theme")).toBe("sakura");
-    applyTheme("light");
-    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
 });

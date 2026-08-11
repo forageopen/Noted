@@ -13,7 +13,7 @@ Pre-implementation. Repository scaffolding only - governing docs are in place, a
 - **Load**: drag-and-drop or browse for a `.md` file.
 - **Viewer**: rendered Markdown, default view.
 - **Copy**: one click to copy the file's content.
-- **Theme**: light/dark toggle.
+- **Theme**: Sakura (light pink/burgundy) / Cherry (charcoal/neon pink) toggle.
 - **Edit tab**: highlighter + bold/italic/underline/strikethrough.
 - **Export**: `.html`, `.pdf`, `.docx`.
 - **Dual window**: two independent panes, side by side, for comparing two files.

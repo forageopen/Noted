@@ -3,23 +3,30 @@ import { buildStandaloneHtml, withExtension } from "./html";
 
 describe("buildStandaloneHtml (pure)", () => {
   it("embeds the title, theme, and body html", () => {
-    const html = buildStandaloneHtml("My Doc", "<h1>Hi</h1>", "dark");
+    const html = buildStandaloneHtml("My Doc", "<h1>Hi</h1>", "cherry");
     expect(html).toContain("<title>My Doc</title>");
-    expect(html).toContain('data-theme="dark"');
+    expect(html).toContain('data-theme="cherry"');
     expect(html).toContain("<h1>Hi</h1>");
     expect(html).toContain("<style>");
   });
 
   it("escapes the title", () => {
-    const html = buildStandaloneHtml('<script>alert(1)</script>', "<p></p>", "light");
+    const html = buildStandaloneHtml('<script>alert(1)</script>', "<p></p>", "sakura");
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 
-  it("uses the sakura palette (charcoal bg, neon pink link color), not a light/dark fallback", () => {
+  it("uses the Cherry palette (charcoal bg, neon pink link color), not a fallback", () => {
+    const html = buildStandaloneHtml("Doc", "<p>x</p>", "cherry");
+    expect(html).toContain('data-theme="cherry"');
+    expect(html).toContain("#141316"); // cherry bg
+    expect(html).toContain("#ff5ec2"); // cherry link color
+  });
+
+  it("uses the Sakura palette (light pink bg, burgundy text)", () => {
     const html = buildStandaloneHtml("Doc", "<p>x</p>", "sakura");
     expect(html).toContain('data-theme="sakura"');
-    expect(html).toContain("#141316"); // sakura bg
-    expect(html).toContain("#ff5ec2"); // sakura link color
+    expect(html).toContain("#fff0f5"); // sakura bg
+    expect(html).toContain("#4a0e2e"); // sakura text
   });
 });
 

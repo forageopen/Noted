@@ -8,12 +8,12 @@
 import { Pane } from "./pane";
 import { setupThemeToggle, type Theme } from "./theme";
 import { setupOfflineToggle } from "./offline";
+import { setupConfettiTrigger } from "./confetti";
 import { getJSON, setJSON } from "./storage";
 import { dualPaneIcon, singlePaneIcon } from "./icons";
 
 function readCurrentTheme(): Theme {
-  const attr = document.documentElement.getAttribute("data-theme");
-  return attr === "dark" || attr === "sakura" ? attr : "light";
+  return document.documentElement.getAttribute("data-theme") === "cherry" ? "cherry" : "sakura";
 }
 
 const DUAL_KEY = "noted:dual-pane";
@@ -22,13 +22,15 @@ function main(): void {
   const themeButton = document.getElementById("theme-toggle") as HTMLButtonElement | null;
   const dualButton = document.getElementById("dual-toggle") as HTMLButtonElement | null;
   const offlineButton = document.getElementById("offline-toggle") as HTMLButtonElement | null;
+  const logo = document.getElementById("app-logo");
   const panesContainer = document.getElementById("panes");
 
-  if (!themeButton || !dualButton || !offlineButton || !panesContainer) {
-    throw new Error("main: expected #theme-toggle, #dual-toggle, #offline-toggle, and #panes in index.html");
+  if (!themeButton || !dualButton || !offlineButton || !logo || !panesContainer) {
+    throw new Error("main: expected #theme-toggle, #dual-toggle, #offline-toggle, #app-logo, and #panes in index.html");
   }
 
   setupOfflineToggle(offlineButton);
+  setupConfettiTrigger(logo);
 
   let currentTheme: Theme = setupThemeToggle(themeButton);
   themeButton.addEventListener("click", () => {

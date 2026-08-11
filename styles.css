@@ -1,5 +1,10 @@
 /* Noted - app chrome + rendered Markdown content styling.
-   Theme is applied as data-theme="light"|"dark" on <html> (see src/theme.ts).
+   Theme is applied as data-theme="sakura"|"cherry" on <html> (see
+   src/theme.ts). Sakura: light pink surfaces, burgundy as the darkest/text
+   color. Cherry: charcoal grey-black surfaces, neon pink accent, glowing
+   button hover. (Previously a three-way light/dark/sakura cycle - dark
+   mode was retired, "light" was recolored and renamed to "Sakura", and the
+   old "sakura" was renamed to "Cherry".)
 
    Restyled to the Atlassian Design System's visual language: its neutral/
    brand color scale (Blue 500/400, Neutral N-series light / DN-series
@@ -26,32 +31,36 @@
 }
 
 :root {
+  /* Sakura (default/base theme - no data-theme override needed since this
+     is what applies whenever data-theme="sakura" is set). Light pink,
+     burgundy as the darkest color. */
+
   /* Surfaces */
-  --ds-surface: #ffffff;
-  --ds-surface-sunken: #f1f2f4;
-  --ds-surface-overlay: #ffffff;
+  --ds-surface: #fff0f5;
+  --ds-surface-sunken: #ffe0eb;
+  --ds-surface-overlay: #fff5f9;
 
   /* Text */
-  --ds-text: #172b4d;
-  --ds-text-subtle: #44546f;
-  --ds-text-inverse: #ffffff;
+  --ds-text: #4a0e2e;
+  --ds-text-subtle: #8a4a63;
+  --ds-text-inverse: #fff0f5;
 
   /* Border */
-  --ds-border: #dfe1e6;
-  --ds-border-bold: #b3b9c4;
+  --ds-border: #f3c6d6;
+  --ds-border-bold: #d98aa8;
 
   /* Brand / status */
-  --ds-brand-bold: #0052cc;
-  --ds-brand-bold-hover: #0065ff;
-  --ds-brand-subtle: #deebff;
+  --ds-brand-bold: #c2185b;
+  --ds-brand-bold-hover: #e64980;
+  --ds-brand-subtle: #ffd6e5;
   --ds-danger: #de350b;
   --ds-danger-subtle: #ffebe6;
   --ds-warning: #ffab00;
   --ds-success: #36b37e;
 
   /* Code / drop zone */
-  --ds-code-bg: #f4f5f7;
-  --ds-drop-bg: #deebff;
+  --ds-code-bg: #f8e1ea;
+  --ds-drop-bg: #ffe4ec;
 
   /* Elevation (Atlassian's documented "raised" shadow) */
   --ds-shadow-raised: 0 1px 1px rgba(9, 30, 66, 0.25), 0 0 1px 1px rgba(9, 30, 66, 0.13);
@@ -78,37 +87,13 @@
   --danger: var(--ds-danger);
 }
 
-html[data-theme="dark"] {
-  --ds-surface: #1d2125;
-  --ds-surface-sunken: #161a1d;
-  --ds-surface-overlay: #282e33;
-
-  --ds-text: #b6c2cf;
-  --ds-text-subtle: #9fadbc;
-  --ds-text-inverse: #1d2125;
-
-  --ds-border: #38414a;
-  --ds-border-bold: #454f59;
-
-  --ds-brand-bold: #579dff;
-  --ds-brand-bold-hover: #85b8ff;
-  --ds-brand-subtle: #09326c;
-  --ds-danger: #f87168;
-  --ds-danger-subtle: #5d1f1a;
-  --ds-warning: #e2b203;
-  --ds-success: #4bce97;
-
-  --ds-code-bg: #22272b;
-  --ds-drop-bg: #09326c;
-
-  --ds-shadow-raised: 0 1px 1px rgba(3, 4, 5, 0.4), 0 0 1px 1px rgba(3, 4, 5, 0.32);
-}
-
-/* Sakura - dark mode's structure, charcoal grey-black surfaces instead of
-   dark mode's navy-grey, and neon pink instead of blue as the accent.
-   Buttons additionally get a glowing pink hover effect - see
-   `html[data-theme="sakura"] .btn:hover` etc. below. */
-html[data-theme="sakura"] {
+/* Cherry - charcoal grey-black surfaces, neon pink instead of blue/rose as
+   the accent. Buttons additionally get a glowing pink hover effect - see
+   `html[data-theme="cherry"] .btn:hover` etc. below. The logo also gets
+   the brand-pink color here (see .app-title override further down)
+   instead of the theme's own (light, low-contrast-looking-white) text
+   color. */
+html[data-theme="cherry"] {
   --ds-surface: #141316;
   --ds-surface-sunken: #0e0d10;
   --ds-surface-overlay: #1c1a1d;
@@ -185,12 +170,28 @@ body {
   background: var(--ds-surface);
 }
 
+.app-footer {
+  flex-shrink: 0; /* #app is a fixed-height flex column (internal-scroll-only layout) - never let this get squeezed by .panes */
+  text-align: center;
+  padding: 6px;
+  font-size: 12px;
+  color: var(--ds-text-subtle);
+  border-top: 1px solid var(--ds-border);
+  background: var(--ds-surface);
+}
+
 .app-title {
   font-family: "Erica One", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 22px;
   font-weight: 400; /* Erica One only ships a single (regular) weight */
   color: var(--ds-text);
   margin: 0;
+}
+
+/* Cherry-only: neon pink instead of the theme's own (light, washed-out
+   looking) text color. */
+html[data-theme="cherry"] .app-title {
+  color: var(--ds-brand-bold);
 }
 
 .header-actions {
@@ -218,10 +219,10 @@ body {
   background: var(--ds-border-bold);
 }
 
-/* Sakura-only: a subtle glowing pink hover on every button-like control. */
-html[data-theme="sakura"] .btn:hover:not(:disabled),
-html[data-theme="sakura"] .tab-btn:hover,
-html[data-theme="sakura"] .fmt-btn:hover {
+/* Cherry-only: a subtle glowing pink hover on every button-like control. */
+html[data-theme="cherry"] .btn:hover:not(:disabled),
+html[data-theme="cherry"] .tab-btn:hover,
+html[data-theme="cherry"] .fmt-btn:hover {
   box-shadow: var(--ds-glow);
 }
 
@@ -309,6 +310,18 @@ html[data-theme="sakura"] .fmt-btn:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer; /* click to rename (pane.ts) once a file exists - harmless no-op on "No file loaded" */
+  border-radius: var(--ds-radius);
+  padding: 2px 4px;
+  margin: -2px -4px; /* padding without shifting neighboring layout */
+}
+
+.file-name[contenteditable="true"] {
+  cursor: text;
+  overflow: visible;
+  white-space: normal;
+  background: var(--ds-surface-sunken);
+  outline: 1px solid var(--ds-brand-bold);
 }
 
 .tabs {
@@ -373,12 +386,41 @@ html[data-theme="sakura"] .fmt-btn:hover {
 }
 
 .highlight-group {
+  position: relative; /* anchors .highlight-popover below */
   display: flex;
   align-items: center;
-  gap: 6px;
   margin-left: 8px;
   padding-left: 8px;
   border-left: 1px solid var(--ds-border);
+}
+
+.highlight-toggle[aria-expanded="true"] {
+  background: var(--ds-border);
+}
+
+/* 18 colors (+ remove) don't fit inline in the toolbar row - a popover
+   grid, opened by .highlight-toggle (pane.ts), closed on selecting a
+   color or clicking anywhere outside it. */
+.highlight-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(6, 1.25rem);
+  gap: 6px;
+  padding: 10px;
+  background: var(--ds-surface-overlay);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-raised);
+}
+/* Same fix as .edit-toolbar[hidden] above: an explicit `display` on this
+   class ties in specificity with the browser's plain `[hidden] { display:
+   none }` rule, and being later in the cascade would otherwise win -
+   keeping the popover visible even when `hidden` is set. */
+.highlight-popover[hidden] {
+  display: none;
 }
 
 .highlight-swatch {
@@ -390,8 +432,16 @@ html[data-theme="sakura"] .fmt-btn:hover {
   padding: 0;
 }
 
+.highlight-swatch:hover {
+  transform: scale(1.15);
+}
+
 .highlight-none {
-  background: var(--ds-surface);
+  grid-column: 1 / -1; /* full-width row of its own, set apart from the color grid */
+  width: auto;
+  height: 1.5rem;
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface-sunken);
   color: var(--ds-text-subtle);
   font-size: 0.85rem;
   line-height: 1;
@@ -405,6 +455,13 @@ html[data-theme="sakura"] .fmt-btn:hover {
   text-align: center;
   color: var(--ds-text-subtle);
   background: var(--ds-drop-bg);
+  cursor: pointer; /* also click-to-create-new-file (pane.ts), not just a drop target */
+}
+
+.drop-zone:hover,
+.drop-zone:focus-visible {
+  border-color: var(--ds-brand-bold);
+  color: var(--ds-text);
 }
 
 .drop-zone.drag-over {
@@ -486,12 +543,37 @@ html[data-theme="sakura"] .fmt-btn:hover {
   margin-left: auto;
 }
 
-.export-label {
-  color: var(--ds-text-subtle);
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+/* Export is a popover, same pattern as .highlight-group/.highlight-popover
+   (see those rules) - .html/.pdf/.docx/.json used to be four always-visible
+   buttons; now a single "Export" toggle (styled like the Copy button next
+   to it, not uppercased - plain sentence case) opens a small menu. */
+.export-group {
+  position: relative; /* anchors .export-popover below */
+}
+
+.export-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--ds-surface-overlay);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-raised);
+}
+/* Same fix as .edit-toolbar[hidden]/.highlight-popover[hidden] above: an
+   explicit `display` on this class ties in specificity with the browser's
+   plain `[hidden] { display: none }` rule. */
+.export-popover[hidden] {
+  display: none;
+}
+
+.export-popover .export-btn {
+  text-align: left;
 }
 
 /* ---- Rendered Markdown content styling (both themes via variables) ---- */
@@ -612,6 +694,7 @@ html[data-theme="sakura"] .fmt-btn:hover {
   }
 
   body.noted-printing > #app > .app-header,
+  body.noted-printing > #app > .app-footer,
   body.noted-printing .pane:not(.noted-print-target) {
     display: none !important;
   }
@@ -679,5 +762,54 @@ html[data-theme="sakura"] .fmt-btn:hover {
      its first body row across a break. */
   body.noted-printing .noted-print-target .content thead {
     display: table-header-group;
+  }
+}
+
+/* ---- Logo confetti easter egg (src/confetti.ts) -------------------- */
+
+.app-title {
+  user-select: none; /* click-and-hold shouldn't select the wordmark's text */
+}
+
+.confetti-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* never blocks clicking the logo again mid-shower, or anything else on the page */
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.confetti-burst {
+  position: absolute;
+  inset: 0;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--confetti-drift, 0px), 110vh) rotate(var(--confetti-rotate, 360deg));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece {
+    animation: none;
+    display: none;
   }
 }

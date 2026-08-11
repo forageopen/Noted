@@ -24,6 +24,7 @@ async function bootMain(): Promise<{ dualButton: HTMLButtonElement; panesContain
     <button id="theme-toggle"></button>
     <button id="dual-toggle"></button>
     <button id="offline-toggle"></button>
+    <h1 id="app-logo">Noted</h1>
     <main id="panes"></main>
   `;
   vi.resetModules();

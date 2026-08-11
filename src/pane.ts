@@ -37,16 +37,51 @@ import { docxBlockstoBlob } from "./export/docx";
 import { exportJson } from "./export/json";
 import { blocksFromElement, blocksFromTokens, type Block } from "./document-model";
 import { setupPageMarkers } from "./page-markers";
+import { highlighterIcon } from "./icons";
 import type { Theme } from "./theme";
 
 export type PaneMode = "view" | "edit";
 
+// 18 pastel highlighter colors (Material "200"-tier shades, chosen for
+// consistent lightness so the forced-black text below reads well against
+// every one of them). Shown in a popover (see .highlight-popover in
+// styles.css) rather than inline - 18 always-visible swatches plus the
+// remove option doesn't fit the toolbar row.
 const HIGHLIGHT_COLORS = [
   { label: "Yellow", value: "#fff59d" },
-  { label: "Green", value: "#a5d6a7" },
-  { label: "Blue", value: "#90caf9" },
+  { label: "Amber", value: "#ffe082" },
+  { label: "Orange", value: "#ffcc80" },
+  { label: "Peach", value: "#ffccbc" },
+  { label: "Coral", value: "#ffab91" },
+  { label: "Red", value: "#ef9a9a" },
+  { label: "Rose", value: "#f8bbd0" },
   { label: "Pink", value: "#f48fb1" },
+  { label: "Lavender", value: "#d1c4e9" },
+  { label: "Purple", value: "#ce93d8" },
+  { label: "Indigo", value: "#9fa8da" },
+  { label: "Sky", value: "#81d4fa" },
+  { label: "Blue", value: "#90caf9" },
+  { label: "Cyan", value: "#80deea" },
+  { label: "Teal", value: "#80cbc4" },
+  { label: "Mint", value: "#a7ffeb" },
+  { label: "Green", value: "#a5d6a7" },
+  { label: "Lime", value: "#e6ee9c" },
 ];
+
+// Matches styles.css's --ds-text value for each theme - the text color to
+// restore when a highlight is removed, so text goes back to looking
+// normal for whichever theme is active rather than a hardcoded color.
+const THEME_TEXT_COLOR: Record<Theme, string> = {
+  sakura: "#4a0e2e",
+  cherry: "#ece7ea",
+};
+
+// Forced on any newly-highlighted text, regardless of theme - the pastel
+// highlight colors above read poorly against both themes' text colors (in
+// a couple of cases even Sakura's own burgundy), so highlighted text
+// always gets this near-black color instead of inheriting whatever the
+// theme's normal text color is.
+const HIGHLIGHTED_TEXT_COLOR = "#1a1a1a";
 
 let paneCounter = 0;
 
@@ -77,7 +112,12 @@ export class Pane {
   private editToolbar!: HTMLElement;
   private contentEl!: HTMLElement;
   private exportButtons!: HTMLButtonElement[];
+  private exportToggle!: HTMLButtonElement;
+  private exportPopover!: HTMLElement;
+  private highlightToggle!: HTMLButtonElement;
+  private highlightPopover!: HTMLElement;
   private stopPageMarkers!: () => void;
+  private stopPopoverListeners: Array<() => void> = [];
 
   constructor(container: HTMLElement, getTheme: () => Theme) {
     this.id = ++paneCounter;
@@ -95,6 +135,7 @@ export class Pane {
   /** Remove this pane's DOM and let it be garbage collected. */
   destroy(): void {
     this.stopPageMarkers();
+    for (const stop of this.stopPopoverListeners) stop();
     this.root.remove();
   }
 
@@ -112,11 +153,15 @@ export class Pane {
         </div>
       </div>
       <div class="export-controls">
-        <span class="export-label">Export:</span>
-        <button type="button" class="btn export-btn" data-export="html" disabled>.html</button>
-        <button type="button" class="btn export-btn" data-export="pdf" disabled>.pdf</button>
-        <button type="button" class="btn export-btn" data-export="docx" disabled>.docx</button>
-        <button type="button" class="btn export-btn" data-export="json" disabled>.json</button>
+        <span class="export-group">
+          <button type="button" class="btn export-toggle" disabled aria-haspopup="true" aria-expanded="false">Export</button>
+          <div class="export-popover" hidden>
+            <button type="button" class="btn export-btn" data-export="html">.html</button>
+            <button type="button" class="btn export-btn" data-export="pdf">.pdf</button>
+            <button type="button" class="btn export-btn" data-export="docx">.docx</button>
+            <button type="button" class="btn export-btn" data-export="json">.json</button>
+          </div>
+        </span>
         <button type="button" class="btn copy-btn" disabled>Copy</button>
       </div>
       <div class="edit-toolbar" hidden>
@@ -125,15 +170,18 @@ export class Pane {
         <button type="button" class="fmt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
         <button type="button" class="fmt-btn" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
         <span class="highlight-group">
-          ${HIGHLIGHT_COLORS.map(
-            (c) =>
-              `<button type="button" class="highlight-swatch" data-highlight="${c.value}" style="background:${c.value}" title="${c.label} highlight" aria-label="${c.label} highlight"></button>`,
-          ).join("")}
-          <button type="button" class="highlight-swatch highlight-none" data-highlight="none" title="Remove highlight" aria-label="Remove highlight">&times;</button>
+          <button type="button" class="fmt-btn highlight-toggle" title="Highlighter" aria-haspopup="true" aria-expanded="false">${highlighterIcon}</button>
+          <div class="highlight-popover" hidden>
+            ${HIGHLIGHT_COLORS.map(
+              (c) =>
+                `<button type="button" class="highlight-swatch" data-highlight="${c.value}" style="background:${c.value}" title="${c.label}" aria-label="${c.label} highlight"></button>`,
+            ).join("")}
+            <button type="button" class="highlight-swatch highlight-none" data-highlight="none" title="Remove highlight" aria-label="Remove highlight">&times;</button>
+          </div>
         </span>
       </div>
-      <div class="drop-zone">
-        <p>Drag &amp; drop a <code>.md</code> file here, or use "Open file&hellip;" above.</p>
+      <div class="drop-zone" role="button" tabindex="0">
+        <p>Drag &amp; drop a <code>.md</code> file here, click to start a new one, or use "Open file&hellip;" above.</p>
       </div>
       <div class="content" hidden></div>
     `;
@@ -148,6 +196,10 @@ export class Pane {
     this.editToolbar = this.q(".edit-toolbar");
     this.contentEl = this.q(".content");
     this.exportButtons = Array.from(this.root.querySelectorAll<HTMLButtonElement>(".export-btn"));
+    this.exportToggle = this.q<HTMLButtonElement>(".export-toggle");
+    this.exportPopover = this.q(".export-popover");
+    this.highlightToggle = this.q<HTMLButtonElement>(".highlight-toggle");
+    this.highlightPopover = this.q(".highlight-popover");
   }
 
   private q<T extends HTMLElement = HTMLElement>(selector: string): T {
@@ -181,6 +233,21 @@ export class Pane {
       (message) => this.notify(message),
     );
 
+    // Clicking (or Enter/Space, since it's a role="button") the empty-state
+    // message itself starts a blank new file in Edit mode - drag-and-drop
+    // and "Open file…" both load an EXISTING file; this is the third,
+    // previously-missing way in ("create one from nothing"). Safe to wire
+    // a plain click here: setupFileLoader's drag-and-drop listeners above
+    // are bound to `this.root` (the whole pane), not `this.dropZone`
+    // itself, so there's no event-type conflict.
+    this.dropZone.addEventListener("click", () => this.createNewFile());
+    this.dropZone.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        this.createNewFile();
+      }
+    });
+
     this.tabView.addEventListener("click", () => this.setMode("view"));
     this.tabEdit.addEventListener("click", () => this.setMode("edit"));
 
@@ -190,7 +257,7 @@ export class Pane {
       this.edited = true;
     });
 
-    for (const button of this.root.querySelectorAll<HTMLButtonElement>(".fmt-btn")) {
+    for (const button of this.root.querySelectorAll<HTMLButtonElement>(".fmt-btn[data-cmd]")) {
       button.addEventListener("click", () => {
         const cmd = button.dataset.cmd;
         if (!cmd) return;
@@ -200,20 +267,112 @@ export class Pane {
       });
     }
 
+    const highlightPopoverCtl = this.wirePopover(this.highlightToggle, this.highlightPopover);
+    const exportPopoverCtl = this.wirePopover(this.exportToggle, this.exportPopover);
+    this.stopPopoverListeners = [highlightPopoverCtl.stop, exportPopoverCtl.stop];
+
     for (const swatch of this.root.querySelectorAll<HTMLButtonElement>(".highlight-swatch")) {
       swatch.addEventListener("click", () => {
-        const color = swatch.dataset.highlight === "none" ? "transparent" : swatch.dataset.highlight!;
+        const isRemove = swatch.dataset.highlight === "none";
+        const color = isRemove ? "transparent" : swatch.dataset.highlight!;
         this.contentEl.focus();
         if (!document.execCommand("hiliteColor", false, color)) {
           document.execCommand("backColor", false, color);
         }
+        // The pastel highlight colors read poorly against dark/sakura's
+        // light default text color - force readable near-black text on a
+        // new highlight, and restore the current theme's normal text
+        // color on removal (not a hardcoded color - it'd look wrong
+        // against a dark-mode/sakura background).
+        document.execCommand("foreColor", false, isRemove ? THEME_TEXT_COLOR[this.getTheme()] : HIGHLIGHTED_TEXT_COLOR);
         this.edited = true;
+        highlightPopoverCtl.close();
       });
     }
 
     for (const button of this.exportButtons) {
-      button.addEventListener("click", () => void this.handleExport(button.dataset.export!));
+      button.addEventListener("click", () => {
+        exportPopoverCtl.close();
+        void this.handleExport(button.dataset.export!);
+      });
     }
+
+    this.wireFileNameRename();
+  }
+
+  /** Shared open/close-on-outside-click wiring for a toggle-button +
+   * popover pair (used by both the highlighter and export popovers, which
+   * are otherwise identical in behavior). The outside-click listener is
+   * document-level ("outside" includes anywhere else on the page, not just
+   * within this pane) - its `stop` must be called from `destroy()` so a
+   * discarded pane (dual-window toggling back to single - main.ts)
+   * doesn't leave a dangling listener on the shared document. */
+  private wirePopover(toggle: HTMLButtonElement, popover: HTMLElement): { close: () => void; stop: () => void } {
+    const setOpen = (open: boolean): void => {
+      popover.hidden = !open;
+      toggle.setAttribute("aria-expanded", String(open));
+    };
+    toggle.addEventListener("click", (event) => {
+      event.stopPropagation(); // don't let this click immediately trigger the outside-click closer below
+      setOpen(popover.hidden);
+    });
+    const onOutsideClick = (event: MouseEvent): void => {
+      if (popover.hidden) return;
+      if (event.target === toggle || popover.contains(event.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("click", onOutsideClick);
+    return { close: () => setOpen(false), stop: () => document.removeEventListener("click", onOutsideClick) };
+  }
+
+  /** Click the file-name label to rename it in place; clicking anywhere
+   * else (blur) confirms. Enter also confirms, Escape cancels. Only
+   * active once a file exists (loaded or newly created - createNewFile())
+   * - clicking "No file loaded" is a no-op. Mirrors the same contentEditable
+   * rename pattern used for widget titles elsewhere (focus + select-all on
+   * start, blur-commits, Escape-reverts). */
+  private wireFileNameRename(): void {
+    let previousName = "";
+
+    const startEditing = (): void => {
+      if (this.fileName === null || this.fileNameLabel.contentEditable === "true") return;
+      previousName = this.fileName;
+      this.fileNameLabel.contentEditable = "true";
+      this.fileNameLabel.focus();
+      const range = document.createRange();
+      range.selectNodeContents(this.fileNameLabel);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    };
+
+    const commitEditing = (): void => {
+      this.fileNameLabel.contentEditable = "false";
+      const newName = this.fileNameLabel.textContent?.trim() || previousName;
+      this.fileName = newName;
+      this.fileNameLabel.textContent = newName;
+    };
+
+    const cancelEditing = (): void => {
+      this.fileNameLabel.contentEditable = "false";
+      this.fileNameLabel.textContent = previousName;
+    };
+
+    this.fileNameLabel.addEventListener("click", startEditing);
+    this.fileNameLabel.addEventListener("keydown", (event) => {
+      if (this.fileNameLabel.contentEditable !== "true") return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        this.fileNameLabel.blur(); // blur listener below runs commitEditing()
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        cancelEditing();
+        this.fileNameLabel.blur();
+      }
+    });
+    this.fileNameLabel.addEventListener("blur", () => {
+      if (this.fileNameLabel.contentEditable === "true") commitEditing();
+    });
   }
 
   private notify(message: string): void {
@@ -231,8 +390,29 @@ export class Pane {
     this.contentEl.hidden = false;
     this.contentEl.innerHTML = renderMarkdown(this.displayMarkdown);
     this.copyButton.disabled = false;
-    for (const button of this.exportButtons) button.disabled = false;
+    this.exportToggle.disabled = false;
     this.setMode("view");
+  }
+
+  /** Starts a blank new file directly in Edit mode - the drop-zone's
+   * click-to-create affordance, alongside its existing drag-and-drop and
+   * "Open file…" ways to get content into a pane. There's no original
+   * Markdown source for a file that didn't come from disk, so `edited`
+   * starts true (the live DOM is the only source of truth from the very
+   * first keystroke - see buildDocumentModel()), not false like `load()`. */
+  private createNewFile(): void {
+    this.fileName = "Untitled.md";
+    this.rawMarkdown = "";
+    this.displayMarkdown = "";
+    this.edited = true;
+    this.fileNameLabel.textContent = this.fileName;
+    this.dropZone.hidden = true;
+    this.contentEl.hidden = false;
+    this.contentEl.innerHTML = "";
+    this.copyButton.disabled = false;
+    this.exportToggle.disabled = false;
+    this.setMode("edit");
+    this.contentEl.focus();
   }
 
   /** Resets the pane back to its empty, no-file-loaded state - the
@@ -249,7 +429,7 @@ export class Pane {
     this.contentEl.hidden = true;
     this.dropZone.hidden = false;
     this.copyButton.disabled = true;
-    for (const button of this.exportButtons) button.disabled = true;
+    this.exportToggle.disabled = true;
     this.setMode("view");
   }
 
