@@ -35,16 +35,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      # index.html references "dist/main.js" and "styles.css" - paths only
-      # correct when index.html sits at the repo root next to a dist/
-      # subfolder (the local-dev layout). Stage a site/ folder that
-      # reproduces that layout exactly, so index.html needs zero path
-      # changes between local dev and the deployed site.
-      - name: Assemble static site (site/index.html + site/styles.css + site/dist/**)
+      # index.html/styles.css reference "dist/main.js" and
+      # "assets/fonts/..." with paths only correct when index.html sits at
+      # the repo root next to dist/ and assets/ (the local-dev layout).
+      # Stage a site/ folder that reproduces that layout exactly, so no
+      # path needs to change between local dev and the deployed site.
+      - name: Assemble static site (site/index.html + site/styles.css + site/dist/** + site/assets/**)
         run: |
           mkdir -p site
           cp index.html styles.css site/
           cp -r dist site/dist
+          cp -r assets site/assets
 
       - uses: actions/configure-pages@v5
 

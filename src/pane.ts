@@ -157,6 +157,24 @@ export class Pane {
   }
 
   private wire(): void {
+    // Registered BEFORE setupFileLoader's own click listener on the same
+    // button/event, so stopImmediatePropagation here reliably pre-empts it
+    // (same-element listeners run in registration order) - once a file is
+    // loaded, a click on this button clears it instead of reopening the
+    // file picker underneath.
+    this.browseButton.addEventListener("click", (event) => {
+      if (this.fileName === null) return;
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      this.clearFile();
+    });
+    this.browseButton.addEventListener("mouseenter", () => {
+      if (this.fileName !== null) this.browseButton.textContent = "Clear file";
+    });
+    this.browseButton.addEventListener("mouseleave", () => {
+      this.browseButton.textContent = "Open file…";
+    });
+
     setupFileLoader(
       { dropZone: this.root, fileInput: this.fileInput, browseButton: this.browseButton },
       (file) => this.load(file),
@@ -214,6 +232,24 @@ export class Pane {
     this.contentEl.innerHTML = renderMarkdown(this.displayMarkdown);
     this.copyButton.disabled = false;
     for (const button of this.exportButtons) button.disabled = false;
+    this.setMode("view");
+  }
+
+  /** Resets the pane back to its empty, no-file-loaded state - the
+   * "Clear file" action the browse button turns into (on hover) once a
+   * file is loaded. Mirrors `load()`'s fields/UI toggles in reverse. */
+  private clearFile(): void {
+    this.fileName = null;
+    this.rawMarkdown = "";
+    this.displayMarkdown = "";
+    this.edited = false;
+    this.fileNameLabel.textContent = "No file loaded";
+    this.browseButton.textContent = "Open file…";
+    this.contentEl.innerHTML = "";
+    this.contentEl.hidden = true;
+    this.dropZone.hidden = false;
+    this.copyButton.disabled = true;
+    for (const button of this.exportButtons) button.disabled = true;
     this.setMode("view");
   }
 

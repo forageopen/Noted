@@ -31,8 +31,13 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE_NAME = "noted-shell-v1";
-const SHELL_PATHS = ["", "index.html", "styles.css", "dist/main.js", "dist/sw.js"];
+// Bumped to v2 (font asset added to the shell) - a new CACHE_NAME forces a
+// fresh precache on activate (see the "activate" handler below, which
+// deletes any cache whose name isn't CACHE_NAME), so an already-offline
+// visitor actually picks up newly added shell files instead of being
+// stuck with whatever was cached under the old name.
+const CACHE_NAME = "noted-shell-v2";
+const SHELL_PATHS = ["", "index.html", "styles.css", "dist/main.js", "dist/sw.js", "assets/fonts/EricaOne-Regular.woff2"];
 
 function shellUrls(): string[] {
   return SHELL_PATHS.map((path) => new URL(path, scope.registration.scope).href);

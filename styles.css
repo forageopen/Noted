@@ -10,6 +10,21 @@
    actual typeface, isn't a freely embeddable web font, so the font stack
    below is ADS's own documented system-font fallback chain. */
 
+/* "Noted" wordmark font - Erica One (SIL OFL 1.1, assets/fonts/OFL.txt),
+   self-hosted rather than linked from Google Fonts' CDN: this app is
+   local-first/offline-capable (PRODUCT-SPEC.md Section 4, and the actual
+   offline-mode service worker - src/sw.ts) - a runtime CDN font request
+   would silently break both once the page itself has loaded, and would be
+   a network dependency this app otherwise has none of. Only the logo uses
+   it; body text stays on the system-font stack above. */
+@font-face {
+  font-family: "Erica One";
+  src: url("assets/fonts/EricaOne-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Surfaces */
   --ds-surface: #ffffff;
@@ -171,8 +186,9 @@ body {
 }
 
 .app-title {
-  font-size: 20px;
-  font-weight: 600;
+  font-family: "Erica One", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 22px;
+  font-weight: 400; /* Erica One only ships a single (regular) weight */
   color: var(--ds-text);
   margin: 0;
 }
@@ -276,6 +292,14 @@ html[data-theme="sakura"] .fmt-btn:hover {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Fixed width, sized to fit the longer of "Open file…" / "Clear file" -
+   without this, the button visibly resized/shifted its neighbors every
+   time its label swapped on hover (pane.ts's mouseenter/mouseleave). */
+.browse-btn {
+  min-width: 6.5rem;
+  text-align: center;
 }
 
 .file-name {
