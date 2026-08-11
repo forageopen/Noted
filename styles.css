@@ -1,0 +1,360 @@
+/* Noted - app chrome + rendered Markdown content styling.
+   Theme is applied as data-theme="light"|"dark" on <html> (see src/theme.ts). */
+
+:root {
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --fg: #1b1d21;
+  --muted: #5f6368;
+  --border: #dcdfe3;
+  --accent: #1a56db;
+  --code-bg: #f0f1f3;
+  --drop-bg: #eef2ff;
+  --danger: #b3261e;
+}
+
+html[data-theme="dark"] {
+  --bg: #16171a;
+  --surface: #1e2024;
+  --fg: #e8e9eb;
+  --muted: #9aa0a6;
+  --border: #34373c;
+  --accent: #8ab4f8;
+  --code-bg: #26282c;
+  --drop-bg: #23283a;
+  --danger: #f2b8b5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.app-title {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn {
+  font: inherit;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panes {
+  flex: 1;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.panes-single {
+  grid-template-columns: 1fr;
+}
+
+.panes-dual {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 720px) {
+  .panes-dual {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+  min-height: 20rem;
+}
+
+.pane-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.file-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.file-name {
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tab-btn {
+  font: inherit;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.edit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+/* `display: flex` above beats the browser's default `[hidden] { display:
+   none }` rule (author styles win over the UA stylesheet), so without this
+   the toolbar stays visible even when Pane.setMode("view") sets the
+   `hidden` attribute. This restores hidden's effect for this element. */
+.edit-toolbar[hidden] {
+  display: none;
+}
+
+.fmt-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.fmt-btn:hover {
+  border-color: var(--accent);
+}
+
+.highlight-group {
+  display: flex;
+  gap: 0.3rem;
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border);
+}
+
+.highlight-swatch {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+}
+
+.highlight-none {
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.drop-zone {
+  margin: 1rem;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--drop-bg);
+}
+
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+.content {
+  flex: 1;
+  padding: 1rem 1.25rem;
+  overflow: auto;
+  outline: none;
+}
+
+.content[contenteditable="true"] {
+  background: var(--bg);
+}
+
+.export-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.export-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---- Rendered Markdown content styling (both themes via variables) ---- */
+
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  line-height: 1.25;
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+}
+
+.content h1:first-child,
+.content h2:first-child,
+.content h3:first-child {
+  margin-top: 0;
+}
+
+.content a {
+  color: var(--accent);
+}
+
+.content blockquote {
+  margin: 1rem 0;
+  padding: 0.25rem 1rem;
+  border-left: 4px solid var(--border);
+  color: var(--muted);
+}
+
+.content code {
+  background: var(--code-bg);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.content pre {
+  background: var(--code-bg);
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.content pre code {
+  background: none;
+  padding: 0;
+}
+
+.content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.content th,
+.content td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+
+.content hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5rem 0;
+}
+
+.content img {
+  max-width: 100%;
+}
+
+/* ---- Print (.pdf export) -----------------------------------------
+   Hidden by default; only takes effect while document.body has
+   .noted-printing, set right before window.print() by Pane.printPane(). */
+
+@media print {
+  body.noted-printing > #app > .app-header,
+  body.noted-printing .pane:not(.noted-print-target) {
+    display: none !important;
+  }
+
+  body.noted-printing .noted-print-target {
+    border: none;
+    min-height: 0;
+  }
+
+  body.noted-printing .noted-print-target .pane-toolbar-row,
+  body.noted-printing .noted-print-target .edit-toolbar,
+  body.noted-printing .noted-print-target .drop-zone,
+  body.noted-printing .noted-print-target .export-controls {
+    display: none !important;
+  }
+
+  body.noted-printing .panes {
+    display: block;
+    padding: 0;
+  }
+
+  body.noted-printing .noted-print-target .content {
+    overflow: visible;
+    padding: 0;
+  }
+}
