@@ -44,13 +44,19 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v3 (sw.js moved from dist/sw.js to the site root - v2's
-// visitors had no working registration to begin with, per the scope bug
-// above, so there's nothing of theirs to preserve) - a new CACHE_NAME
-// forces a fresh precache on activate (see the "activate" handler below,
-// which deletes any cache whose name isn't CACHE_NAME).
-const CACHE_NAME = "noted-shell-v3";
-const SHELL_PATHS = ["", "index.html", "styles.css", "dist/main.js", "sw.js", "assets/fonts/EricaOne-Regular.woff2"];
+// Bumped to v4 (favicon added to the shell) - a new CACHE_NAME forces a
+// fresh precache on activate (see the "activate" handler below, which
+// deletes any cache whose name isn't CACHE_NAME).
+const CACHE_NAME = "noted-shell-v4";
+const SHELL_PATHS = [
+  "",
+  "index.html",
+  "styles.css",
+  "dist/main.js",
+  "sw.js",
+  "assets/fonts/EricaOne-Regular.woff2",
+  "assets/icons/favicon.svg",
+];
 
 function shellUrls(): string[] {
   return SHELL_PATHS.map((path) => new URL(path, scope.registration.scope).href);
