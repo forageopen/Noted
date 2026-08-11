@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "docx": "^8.5.0",
+    "mammoth": "^1.12.1",
     "marked": "^13.0.0"
   },
   "devDependencies": {

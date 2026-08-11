@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
 import { lexMarkdown } from "./markdown";
-import { blocksFromElement, blocksFromTokens } from "./document-model";
+import { blocksFromElement, blocksFromTokens, blocksToMarkdown } from "./document-model";
 import type { Block } from "./document-model";
 
 describe("blocksFromTokens (from marked.lexer)", () => {
@@ -136,5 +136,104 @@ describe("blocksFromElement (from live contenteditable DOM)", () => {
     if (block.kind !== "codeBlock") throw new Error("expected codeBlock");
     expect(block.text).toBe("const x = 1;");
     expect(block.lang).toBe("js");
+  });
+});
+
+describe("blocksToMarkdown (IR -> Markdown, used for .docx-upload compatibility)", () => {
+  it("renders a heading and a plain paragraph", () => {
+    const blocks: Block[] = [
+      { kind: "heading", level: 1, runs: [{ text: "Title" }] },
+      { kind: "paragraph", runs: [{ text: "Body text." }] },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("# Title\n\nBody text.");
+  });
+
+  it("renders bold, italic, and combined bold+italic runs", () => {
+    const blocks: Block[] = [
+      {
+        kind: "paragraph",
+        runs: [
+          { text: "This is " },
+          { text: "bold", bold: true },
+          { text: " and " },
+          { text: "italic", italics: true },
+          { text: " and " },
+          { text: "both", bold: true, italics: true },
+          { text: "." },
+        ],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("This is **bold** and *italic* and ***both***.");
+  });
+
+  it("renders strikethrough, inline code, and a link", () => {
+    const blocks: Block[] = [
+      {
+        kind: "paragraph",
+        runs: [
+          { text: "gone", strike: true },
+          { text: " " },
+          { text: "code()", code: true },
+          { text: " " },
+          { text: "docs", href: "https://example.com" },
+        ],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("~~gone~~ `code()` [docs](https://example.com)");
+  });
+
+  it("renders an unordered list, preserving nested sub-lists", () => {
+    const blocks: Block[] = [
+      {
+        kind: "list",
+        ordered: false,
+        items: [
+          {
+            runs: [{ text: "a" }],
+            children: [
+              {
+                kind: "list",
+                ordered: false,
+                items: [
+                  { runs: [{ text: "nested" }], children: [] },
+                ],
+              },
+            ],
+          },
+          { runs: [{ text: "b" }], children: [] },
+        ],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("- a\n\n  - nested\n- b");
+  });
+
+  it("renders a table with alignment", () => {
+    const blocks: Block[] = [
+      {
+        kind: "table",
+        header: [{ runs: [{ text: "a" }] }, { runs: [{ text: "b" }] }],
+        rows: [[{ runs: [{ text: "1" }] }, { runs: [{ text: "2" }] }]],
+        align: ["left", "center"],
+      },
+    ];
+    expect(blocksToMarkdown(blocks)).toBe("| a | b |\n| :--- | :---: |\n| 1 | 2 |");
+  });
+
+  it("renders a fenced code block with its language", () => {
+    const blocks: Block[] = [{ kind: "codeBlock", lang: "ts", text: "const x = 1;" }];
+    expect(blocksToMarkdown(blocks)).toBe("```ts\nconst x = 1;\n```");
+  });
+
+  it("escapes markdown-special characters in plain text", () => {
+    const blocks: Block[] = [{ kind: "paragraph", runs: [{ text: "1 * 2 [not a link]" }] }];
+    expect(blocksToMarkdown(blocks)).toBe("1 \\* 2 \\[not a link\\]");
+  });
+
+  it("round-trips a docx-shaped document (heading, formatted paragraph, list) back through blocksFromTokens", () => {
+    const original = blocksFromTokens(
+      lexMarkdown("# Hello Docx\n\nThis is **bold** and *italic* text.\n\n- A bullet item\n"),
+    );
+    const roundTripped = blocksFromTokens(lexMarkdown(blocksToMarkdown(original)));
+    expect(roundTripped).toEqual(original);
   });
 });

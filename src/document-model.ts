@@ -371,6 +371,91 @@ function tableElementToBlock(el: Element): Block {
   return { kind: "table", header, rows, align };
 }
 
+// ---------------------------------------------------------------------
+// Path 3: IR -> Markdown text (used for .docx-upload compatibility: a
+// loaded .docx is converted docx -> HTML (mammoth) -> IR (blocksFromElement,
+// above) -> Markdown text here, so the rest of the app - viewer render,
+// Edit tab, .md/.html/.pdf export - never has to know a file didn't
+// originally come from a .md file. Best-effort, not lossless: markdown has
+// no native underline or arbitrary-color-highlight syntax, so those fall
+// back to inline HTML (<u>, <mark>), same tradeoff already accepted for
+// data round-tripped through this IR (see InlineRun's doc comment).
+// ---------------------------------------------------------------------
+
+/** Pure: serialize IR blocks back into Markdown source text. */
+export function blocksToMarkdown(blocks: Block[]): string {
+  return blocks.map((block) => blockToMarkdown(block)).join("\n\n");
+}
+
+function blockToMarkdown(block: Block, indent = ""): string {
+  switch (block.kind) {
+    case "heading":
+      return indent + "#".repeat(block.level) + " " + runsToMarkdown(block.runs);
+    case "paragraph":
+      return indent + runsToMarkdown(block.runs);
+    case "thematicBreak":
+      return indent + "---";
+    case "codeBlock": {
+      const fence = "```" + (block.lang ?? "");
+      const lines = block.text.split("\n").map((line) => indent + line);
+      return `${indent}${fence}\n${lines.join("\n")}\n${indent}\`\`\``;
+    }
+    case "blockquote":
+      return block.blocks
+        .map((child) => blockToMarkdown(child))
+        .join("\n\n")
+        .split("\n")
+        .map((line) => (line.length > 0 ? `${indent}> ${line}` : `${indent}>`))
+        .join("\n");
+    case "list":
+      return block.items
+        .map((item, i) => {
+          const marker = block.ordered ? `${i + 1}. ` : "- ";
+          const firstLine = `${indent}${marker}${runsToMarkdown(item.runs)}`;
+          const childIndent = indent + " ".repeat(marker.length);
+          const children = item.children.map((child) => blockToMarkdown(child, childIndent)).join("\n\n");
+          return children.length > 0 ? `${firstLine}\n\n${children}` : firstLine;
+        })
+        .join("\n");
+    case "table":
+      return tableToMarkdown(block, indent);
+  }
+}
+
+function tableToMarkdown(table: Extract<Block, { kind: "table" }>, indent: string): string {
+  const headerCells = table.header.map((cell) => runsToMarkdown(cell.runs) || " ");
+  const separator = table.align.map((align) => {
+    if (align === "center") return ":---:";
+    if (align === "right") return "---:";
+    if (align === "left") return ":---";
+    return "---";
+  });
+  const rows = table.rows.map((row) => row.map((cell) => runsToMarkdown(cell.runs) || " "));
+  const toRow = (cells: string[]) => `${indent}| ${cells.join(" | ")} |`;
+  return [toRow(headerCells), toRow(separator), ...rows.map(toRow)].join("\n");
+}
+
+function runsToMarkdown(runs: InlineRun[]): string {
+  return runs.map(runToMarkdown).join("").replace(/\n/g, "  \n");
+}
+
+function runToMarkdown(run: InlineRun): string {
+  if (run.code) return `\`${run.text}\``;
+  let text = escapeMarkdown(run.text);
+  if (run.bold && run.italics) text = `***${text}***`;
+  else if (run.bold) text = `**${text}**`;
+  else if (run.italics) text = `*${text}*`;
+  if (run.strike) text = `~~${text}~~`;
+  if (run.underline) text = `<u>${text}</u>`;
+  if (run.href) text = `[${text}](${run.href})`;
+  if (run.highlight) text = `<mark style="background:${run.highlight}">${text}</mark>`;
+  return text;
+}
+
+function escapeMarkdown(text: string): string {
+  return text.replace(/([\\`*_[\]])/g, "\\$1");
+}
+
 function cellAlignment(cell: Element): Alignment {
   const style = (cell as HTMLElement).style?.textAlign;
   if (style === "left" || style === "center" || style === "right") return style;

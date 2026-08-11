@@ -2,9 +2,9 @@
 
 ![Noted](assets/images/hero.png)
 
-**Noted is a simple, private notepad for Markdown.**
+**Noted is a simple, private notepad for Markdown and Word documents.**
 
-Read, write, compare, annotate, and export your documents in one place. With themes, multiple export formats, and offline support, everything stays in your browser and nothing leaves your machine.
+Open, read, write, compare, annotate, and export your documents in one place. Everything runs in your browser, works offline, and nothing leaves your machine.
 
 **[Try it live →](https://forageopen.github.io/Noted/)**
 

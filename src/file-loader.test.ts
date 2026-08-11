@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
-import { isMarkdownFile, pickMarkdownFile, setupFileLoader } from "./file-loader";
+import { isDocxFile, isMarkdownFile, isSupportedFile, pickSupportedFile, setupFileLoader } from "./file-loader";
 
 function makeFile(name: string, content: string, type = ""): File {
   return new File([content], name, { type });
@@ -22,14 +22,45 @@ describe("isMarkdownFile (pure)", () => {
   });
 });
 
-describe("pickMarkdownFile (pure)", () => {
-  it("returns the first markdown file in a list", () => {
+describe("isDocxFile (pure)", () => {
+  it("accepts .docx by extension or mime type", () => {
+    expect(isDocxFile(makeFile("a.docx", ""))).toBe(true);
+    expect(
+      isDocxFile(
+        makeFile("a.bin", "", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects other files", () => {
+    expect(isDocxFile(makeFile("a.md", ""))).toBe(false);
+  });
+});
+
+describe("isSupportedFile (pure)", () => {
+  it("accepts both .md and .docx", () => {
+    expect(isSupportedFile(makeFile("a.md", ""))).toBe(true);
+    expect(isSupportedFile(makeFile("a.docx", ""))).toBe(true);
+  });
+
+  it("rejects everything else", () => {
+    expect(isSupportedFile(makeFile("a.png", ""))).toBe(false);
+  });
+});
+
+describe("pickSupportedFile (pure)", () => {
+  it("returns the first supported file in a list", () => {
     const files = [makeFile("a.png", ""), makeFile("b.md", "hi")];
-    expect(pickMarkdownFile(files)?.name).toBe("b.md");
+    expect(pickSupportedFile(files)?.name).toBe("b.md");
+  });
+
+  it("returns a .docx file when that's the first supported one", () => {
+    const files = [makeFile("a.png", ""), makeFile("b.docx", "")];
+    expect(pickSupportedFile(files)?.name).toBe("b.docx");
   });
 
   it("returns null when none match", () => {
-    expect(pickMarkdownFile([makeFile("a.png", "")])).toBeNull();
+    expect(pickSupportedFile([makeFile("a.png", "")])).toBeNull();
   });
 });
 

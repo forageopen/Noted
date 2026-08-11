@@ -44,10 +44,12 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v4 (favicon added to the shell) - a new CACHE_NAME forces a
-// fresh precache on activate (see the "activate" handler below, which
-// deletes any cache whose name isn't CACHE_NAME).
-const CACHE_NAME = "noted-shell-v4";
+// Bumped to v5 (.docx upload support changed dist/main.js's content) - a
+// new CACHE_NAME forces a fresh precache on activate (see the "activate"
+// handler below, which deletes any cache whose name isn't CACHE_NAME) so
+// offline users actually pick up the new bundle instead of keeping the
+// stale cache-first main.js forever.
+const CACHE_NAME = "noted-shell-v5";
 const SHELL_PATHS = [
   "",
   "index.html",
