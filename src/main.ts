@@ -29,13 +29,23 @@ function main(): void {
 
   let panes: Pane[] = [];
 
+  // Toggling dual mode must never touch a pane that already has content -
+  // it previously destroyed and recreated ALL panes on every toggle,
+  // silently dropping whatever was loaded in the first pane. Now it only
+  // adds or removes the second pane; the first pane (and its content) is
+  // never destroyed just because dual mode was flipped.
   function mountPanes(dual: boolean): void {
-    for (const pane of panes) pane.destroy();
-    panesContainer!.innerHTML = "";
     panesContainer!.classList.toggle("panes-dual", dual);
     panesContainer!.classList.toggle("panes-single", !dual);
-    panes = [new Pane(panesContainer!, () => currentTheme)];
-    if (dual) panes.push(new Pane(panesContainer!, () => currentTheme));
+
+    if (panes.length === 0) {
+      panes.push(new Pane(panesContainer!, () => currentTheme));
+    }
+    if (dual && panes.length === 1) {
+      panes.push(new Pane(panesContainer!, () => currentTheme));
+    } else if (!dual && panes.length === 2) {
+      panes.pop()!.destroy();
+    }
   }
 
   let dual = getJSON<boolean>(DUAL_KEY, false);
