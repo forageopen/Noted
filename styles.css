@@ -569,8 +569,9 @@ html[data-theme="cherry"] .fmt-btn:hover {
 
 .export-popover {
   position: absolute;
-  top: 0;
+  top: 50%;
   left: calc(100% + 6px); /* beside the toggle button, not underneath it (was blocking the content below) */
+  transform: translateY(-50%); /* vertically centered on the button, not top-aligned (read as slightly low/offset) */
   z-index: 5;
   display: flex;
   flex-direction: row; /* horizontal row of formats */
@@ -587,6 +588,57 @@ html[data-theme="cherry"] .fmt-btn:hover {
    plain `[hidden] { display: none }` rule. */
 .export-popover[hidden] {
   display: none;
+}
+
+/* ---- Paragraph style (H1-H6 / Body) popover, edit toolbar - Obsidian's
+   font-size/paragraph-style setting. A vertical dropdown list (unlike the
+   export popover's horizontal row) since each entry is a differently-sized
+   label read top-to-bottom, same shape as Obsidian's own dropdown. */
+.paragraph-style-group {
+  position: relative; /* anchors .paragraph-style-popover below */
+  display: flex;
+  align-items: center;
+}
+
+.paragraph-style-toggle[aria-expanded="true"] {
+  background: var(--ds-border);
+}
+
+.paragraph-style-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  min-width: 6rem;
+  background: var(--ds-surface-overlay);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-raised);
+}
+/* Same fix as .edit-toolbar[hidden] etc above: an explicit `display` on
+   this class ties in specificity with the browser's plain `[hidden] {
+   display: none }` rule. */
+.paragraph-style-popover[hidden] {
+  display: none;
+}
+
+.paragraph-style-btn {
+  font: inherit;
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-text);
+  cursor: pointer;
+}
+
+.paragraph-style-btn:hover {
+  background: var(--ds-surface-sunken);
 }
 
 /* ---- Rendered Markdown content styling (both themes via variables) ---- */

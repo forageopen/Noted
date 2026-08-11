@@ -37,7 +37,7 @@ import { docxBlockstoBlob } from "./export/docx";
 import { exportJson } from "./export/json";
 import { blocksFromElement, blocksFromTokens, type Block } from "./document-model";
 import { setupPageMarkers } from "./page-markers";
-import { highlighterIcon } from "./icons";
+import { highlighterIcon, headingIcon } from "./icons";
 import type { Theme } from "./theme";
 
 export type PaneMode = "view" | "edit";
@@ -78,6 +78,22 @@ const HIGHLIGHT_COLORS = [
   { label: "Mint", value: "#a7ffeb" },
   { label: "Green", value: "#a5d6a7" },
   { label: "Lime", value: "#e6ee9c" },
+];
+
+// Paragraph-style popover entries (edit toolbar) - H1-H6 plus Body (normal
+// paragraph text), matching Obsidian's font-size/paragraph-style setting.
+// `block` is the tag name passed to execCommand("formatBlock", ...);
+// `previewSize` renders each button's own label at roughly its real
+// relative size, same as Obsidian's dropdown, so the list itself doubles
+// as a size preview rather than 7 identically-sized text buttons.
+const PARAGRAPH_STYLES = [
+  { label: "H1", block: "H1", previewSize: "1.3em" },
+  { label: "H2", block: "H2", previewSize: "1.2em" },
+  { label: "H3", block: "H3", previewSize: "1.1em" },
+  { label: "H4", block: "H4", previewSize: "1em" },
+  { label: "H5", block: "H5", previewSize: "0.95em" },
+  { label: "H6", block: "H6", previewSize: "0.9em" },
+  { label: "Body", block: "P", previewSize: "0.85em" },
 ];
 
 // Matches styles.css's --ds-text value for each theme - the text color to
@@ -130,6 +146,8 @@ export class Pane {
   private exportPopover!: HTMLElement;
   private highlightToggle!: HTMLButtonElement;
   private highlightPopover!: HTMLElement;
+  private paragraphStyleToggle!: HTMLButtonElement;
+  private paragraphStylePopover!: HTMLElement;
   private stopPageMarkers!: () => void;
   private stopPopoverListeners: Array<() => void> = [];
 
@@ -179,6 +197,15 @@ export class Pane {
         <button type="button" class="btn copy-btn" disabled>Copy</button>
       </div>
       <div class="edit-toolbar" hidden>
+        <span class="paragraph-style-group">
+          <button type="button" class="fmt-btn paragraph-style-toggle" title="Paragraph style" aria-haspopup="true" aria-expanded="false">${headingIcon}</button>
+          <div class="paragraph-style-popover" hidden>
+            ${PARAGRAPH_STYLES.map(
+              (s) =>
+                `<button type="button" class="paragraph-style-btn" data-block="${s.block}" style="font-size:${s.previewSize}">${s.label}</button>`,
+            ).join("")}
+          </div>
+        </span>
         <button type="button" class="fmt-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>
         <button type="button" class="fmt-btn" data-cmd="italic" title="Italic"><em>I</em></button>
         <button type="button" class="fmt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
@@ -216,6 +243,8 @@ export class Pane {
     this.exportPopover = this.q(".export-popover");
     this.highlightToggle = this.q<HTMLButtonElement>(".highlight-toggle");
     this.highlightPopover = this.q(".highlight-popover");
+    this.paragraphStyleToggle = this.q<HTMLButtonElement>(".paragraph-style-toggle");
+    this.paragraphStylePopover = this.q(".paragraph-style-popover");
   }
 
   private q<T extends HTMLElement = HTMLElement>(selector: string): T {
@@ -285,7 +314,19 @@ export class Pane {
 
     const highlightPopoverCtl = this.wirePopover(this.highlightToggle, this.highlightPopover);
     const exportPopoverCtl = this.wirePopover(this.exportToggle, this.exportPopover);
-    this.stopPopoverListeners = [highlightPopoverCtl.stop, exportPopoverCtl.stop];
+    const paragraphStylePopoverCtl = this.wirePopover(this.paragraphStyleToggle, this.paragraphStylePopover);
+    this.stopPopoverListeners = [highlightPopoverCtl.stop, exportPopoverCtl.stop, paragraphStylePopoverCtl.stop];
+
+    for (const button of this.root.querySelectorAll<HTMLButtonElement>(".paragraph-style-btn")) {
+      button.addEventListener("click", () => {
+        const block = button.dataset.block;
+        if (!block) return;
+        this.contentEl.focus();
+        document.execCommand("formatBlock", false, block);
+        this.edited = true;
+        paragraphStylePopoverCtl.close();
+      });
+    }
 
     for (const swatch of this.root.querySelectorAll<HTMLButtonElement>(".highlight-swatch")) {
       swatch.addEventListener("click", () => {

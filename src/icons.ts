@@ -36,6 +36,13 @@ export const highlighterIcon = lucideIcon([
   ["path", { d: "m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" }],
 ]);
 
+/** Paragraph-style-toggle icon (edit toolbar's H1-H6/Body popover trigger). Lucide "heading". */
+export const headingIcon = lucideIcon([
+  ["path", { d: "M6 12h12" }],
+  ["path", { d: "M6 20V4" }],
+  ["path", { d: "M18 20V4" }],
+]);
+
 /** Sakura theme's icon. Lucide "flower". */
 export const blossomIcon = lucideIcon([
   ["circle", { cx: "12", cy: "12", r: "3" }],

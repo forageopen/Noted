@@ -424,6 +424,54 @@ describe("File-name rename (extension locked, only the base is editable)", () =>
   });
 });
 
+describe("Paragraph style popover (H1-H6 / Body)", () => {
+  async function openEditWithFile(): Promise<Pane> {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "cherry");
+    await loadFile(pane, "a.md", "# Hello");
+    pane.root.querySelector<HTMLButtonElement>(".tab-edit")!.click();
+    return pane;
+  }
+
+  it("offers H1 through H6 plus Body", async () => {
+    const pane = await openEditWithFile();
+    const labels = Array.from(pane.root.querySelectorAll(".paragraph-style-btn")).map((b) => b.textContent);
+    expect(labels).toEqual(["H1", "H2", "H3", "H4", "H5", "H6", "Body"]);
+  });
+
+  it("toggle opens/closes the popover and updates aria-expanded", async () => {
+    const pane = await openEditWithFile();
+    const toggle = pane.root.querySelector<HTMLButtonElement>(".paragraph-style-toggle")!;
+    const popover = pane.root.querySelector<HTMLElement>(".paragraph-style-popover")!;
+    expect(popover.hidden).toBe(true);
+
+    toggle.click();
+    expect(popover.hidden).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    toggle.click();
+    expect(popover.hidden).toBe(true);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("clicking H1 applies formatBlock(H1) and closes the popover", async () => {
+    const pane = await openEditWithFile();
+    pane.root.querySelector<HTMLButtonElement>(".paragraph-style-toggle")!.click();
+    pane.root.querySelector<HTMLButtonElement>('.paragraph-style-btn[data-block="H1"]')!.click();
+
+    expect(document.execCommand).toHaveBeenCalledWith("formatBlock", false, "H1");
+    expect(pane.root.querySelector<HTMLElement>(".paragraph-style-popover")!.hidden).toBe(true);
+  });
+
+  it("clicking Body applies formatBlock(P) - back to normal paragraph text", async () => {
+    const pane = await openEditWithFile();
+    pane.root.querySelector<HTMLButtonElement>(".paragraph-style-toggle")!.click();
+    pane.root.querySelector<HTMLButtonElement>('.paragraph-style-btn[data-block="P"]')!.click();
+
+    expect(document.execCommand).toHaveBeenCalledWith("formatBlock", false, "P");
+  });
+});
+
 describe("Highlighter popover", () => {
   async function openEditWithFile(): Promise<Pane> {
     const container = document.createElement("div");
