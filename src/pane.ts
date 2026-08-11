@@ -101,7 +101,6 @@ export class Pane {
           <button type="button" class="btn browse-btn">Open file&hellip;</button>
           <input type="file" class="file-input" accept=".md,.markdown" hidden />
           <span class="file-name">No file loaded</span>
-          <button type="button" class="btn copy-btn" disabled>Copy</button>
         </div>
         <div class="tabs" role="tablist">
           <button type="button" class="tab-btn tab-view active" data-mode="view" role="tab" aria-selected="true">Viewer</button>
@@ -114,6 +113,7 @@ export class Pane {
         <button type="button" class="btn export-btn" data-export="pdf" disabled>.pdf</button>
         <button type="button" class="btn export-btn" data-export="docx" disabled>.docx</button>
         <button type="button" class="btn export-btn" data-export="json" disabled>.json</button>
+        <button type="button" class="btn copy-btn" disabled>Copy</button>
       </div>
       <div class="edit-toolbar" hidden>
         <button type="button" class="fmt-btn" data-cmd="bold" title="Bold"><strong>B</strong></button>

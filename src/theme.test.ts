@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { toggleTheme, resolveInitialTheme, getStoredTheme, persistTheme, applyTheme } from "./theme";
 
 describe("toggleTheme (pure)", () => {
-  it("flips light to dark and back", () => {
+  it("cycles light -> dark -> sakura -> light", () => {
     expect(toggleTheme("light")).toBe("dark");
-    expect(toggleTheme("dark")).toBe("light");
+    expect(toggleTheme("dark")).toBe("sakura");
+    expect(toggleTheme("sakura")).toBe("light");
   });
 });
 
@@ -23,6 +24,10 @@ describe("resolveInitialTheme (pure)", () => {
   it("falls back to OS preference when stored value is invalid", () => {
     expect(resolveInitialTheme("neon", true)).toBe("dark");
   });
+
+  it("accepts a stored sakura value", () => {
+    expect(resolveInitialTheme("sakura", false)).toBe("sakura");
+  });
 });
 
 describe("theme persistence (jsdom)", () => {
@@ -39,6 +44,8 @@ describe("theme persistence (jsdom)", () => {
   it("applyTheme sets data-theme on <html>", () => {
     applyTheme("dark");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    applyTheme("sakura");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("sakura");
     applyTheme("light");
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });

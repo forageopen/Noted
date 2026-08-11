@@ -30,14 +30,15 @@ ${bodyHtml}
 `;
 }
 
+const STANDALONE_PALETTES: Record<Theme, { bg: string; fg: string; muted: string; border: string; codeBg: string; linkColor: string }> = {
+  light: { bg: "#ffffff", fg: "#1b1d21", muted: "#5f6368", border: "#dcdfe3", codeBg: "#f3f4f6", linkColor: "#1a56db" },
+  dark: { bg: "#1b1d21", fg: "#e6e6e6", muted: "#9aa0a6", border: "#3a3d42", codeBg: "#26282c", linkColor: "#8ab4f8" },
+  // Charcoal grey-black + neon pink, matching styles.css's html[data-theme="sakura"] block.
+  sakura: { bg: "#141316", fg: "#ece7ea", muted: "#a99aa1", border: "#2c262a", codeBg: "#1c181c", linkColor: "#ff5ec2" },
+};
+
 function standaloneCss(theme: Theme): string {
-  const isDark = theme === "dark";
-  const bg = isDark ? "#1b1d21" : "#ffffff";
-  const fg = isDark ? "#e6e6e6" : "#1b1d21";
-  const muted = isDark ? "#9aa0a6" : "#5f6368";
-  const border = isDark ? "#3a3d42" : "#dcdfe3";
-  const codeBg = isDark ? "#26282c" : "#f3f4f6";
-  const linkColor = isDark ? "#8ab4f8" : "#1a56db";
+  const { bg, fg, muted, border, codeBg, linkColor } = STANDALONE_PALETTES[theme];
   return `
 body { background: ${bg}; color: ${fg}; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.6; margin: 0; padding: 2rem; }
 .noted-content { max-width: 46rem; margin: 0 auto; }

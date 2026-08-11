@@ -84,6 +84,37 @@ html[data-theme="dark"] {
   --ds-shadow-raised: 0 1px 1px rgba(3, 4, 5, 0.4), 0 0 1px 1px rgba(3, 4, 5, 0.32);
 }
 
+/* Sakura - dark mode's structure, charcoal grey-black surfaces instead of
+   dark mode's navy-grey, and neon pink instead of blue as the accent.
+   Buttons additionally get a glowing pink hover effect - see
+   `html[data-theme="sakura"] .btn:hover` etc. below. */
+html[data-theme="sakura"] {
+  --ds-surface: #141316;
+  --ds-surface-sunken: #0e0d10;
+  --ds-surface-overlay: #1c1a1d;
+
+  --ds-text: #ece7ea;
+  --ds-text-subtle: #a99aa1;
+  --ds-text-inverse: #141316;
+
+  --ds-border: #2c262a;
+  --ds-border-bold: #45383e;
+
+  --ds-brand-bold: #ff2ea6;
+  --ds-brand-bold-hover: #ff5ec2;
+  --ds-brand-subtle: #3a1230;
+  --ds-danger: #ff6b81;
+  --ds-danger-subtle: #401019;
+  --ds-warning: #e2b203;
+  --ds-success: #4bce97;
+
+  --ds-code-bg: #1c181c;
+  --ds-drop-bg: #2a0f22;
+
+  --ds-shadow-raised: 0 1px 1px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 46, 166, 0.16);
+  --ds-glow: 0 0 0 1px rgba(255, 46, 166, 0.45), 0 0 14px rgba(255, 46, 166, 0.55);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -140,7 +171,7 @@ body {
   background: var(--ds-surface-sunken);
   color: var(--ds-text);
   cursor: pointer;
-  transition: background-color 0.1s ease;
+  transition: background-color 0.1s ease, box-shadow 0.15s ease;
 }
 
 .btn:hover:not(:disabled) {
@@ -151,9 +182,27 @@ body {
   background: var(--ds-border-bold);
 }
 
+/* Sakura-only: a subtle glowing pink hover on every button-like control. */
+html[data-theme="sakura"] .btn:hover:not(:disabled),
+html[data-theme="sakura"] .tab-btn:hover,
+html[data-theme="sakura"] .fmt-btn:hover {
+  box-shadow: var(--ds-glow);
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Icon-only header buttons (theme cycle, dual-window, offline) - square,
+   centered icon, no text. title/aria-label carry the accessible name. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
 }
 
 .panes {
@@ -231,6 +280,7 @@ body {
   background: transparent;
   color: var(--ds-text-subtle);
   cursor: pointer;
+  transition: color 0.1s ease, box-shadow 0.15s ease;
 }
 
 .tab-btn:hover {
@@ -267,6 +317,7 @@ body {
   background: var(--ds-surface);
   color: var(--ds-text);
   cursor: pointer;
+  transition: background-color 0.1s ease, box-shadow 0.15s ease;
 }
 
 .fmt-btn:hover {
@@ -331,6 +382,10 @@ body {
   padding: 10px 12px;
   border-bottom: 1px solid var(--ds-border);
   background: var(--ds-surface-sunken);
+}
+
+.export-controls .copy-btn {
+  margin-left: auto;
 }
 
 .export-label {
@@ -431,6 +486,33 @@ body {
    .noted-printing, set right before window.print() by Pane.printPane(). */
 
 @media print {
+  /* A real @page margin (not a zero-margin-plus-manual-padding trick,
+     which some browsers' print/Save-as-PDF pipeline doesn't render
+     reliably) - Chromium (this app's print target, ADR-0003) applies this
+     directly as the page's margin, same as picking a margin size in the
+     print dialog, so it's dependable. Browsers strip background colors
+     when printing by default (an ink-saving default) - print-color-adjust:
+     exact below overrides that.
+
+     The margin area itself (the strip @page margin creates around the
+     content) is a separate paint region from the page's content box -
+     html/body's background only fills the content box, not the margin
+     strip, so it stayed white regardless of theme even after the fix
+     below. Setting background directly on @page paints that margin strip
+     too - Chromium supports @page background (unlike most @page margin-box
+     pseudo-elements, which it doesn't). */
+  @page {
+    margin: 0.6in;
+    background: var(--ds-surface);
+  }
+
+  html,
+  body {
+    background: var(--ds-surface);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   body.noted-printing > #app > .app-header,
   body.noted-printing .pane:not(.noted-print-target) {
     display: none !important;
@@ -456,6 +538,48 @@ body {
 
   body.noted-printing .noted-print-target .content {
     overflow: visible;
+    /* The page margin above already provides the space - no extra padding
+       needed here (double-padding was the earlier version of this rule). */
     padding: 0;
+  }
+
+  /* Don't let the page break land in the middle of one of these - push the
+     whole element to the next page instead of splitting it. A paragraph/
+     item/etc. taller than one full page still has to break somewhere
+     (there's no page left to push it onto), but that's the rare case;
+     everything else now breaks cleanly between elements, not inside one. */
+  body.noted-printing .noted-print-target .content h1,
+  body.noted-printing .noted-print-target .content h2,
+  body.noted-printing .noted-print-target .content h3,
+  body.noted-printing .noted-print-target .content h4,
+  body.noted-printing .noted-print-target .content h5,
+  body.noted-printing .noted-print-target .content h6,
+  body.noted-printing .noted-print-target .content p,
+  body.noted-printing .noted-print-target .content li,
+  body.noted-printing .noted-print-target .content blockquote,
+  body.noted-printing .noted-print-target .content pre,
+  body.noted-printing .noted-print-target .content table,
+  body.noted-printing .noted-print-target .content img {
+    break-inside: avoid;
+    page-break-inside: avoid; /* older alias - broader engine support, harmless where break-inside is already respected */
+  }
+
+  /* A heading stranded alone at the bottom of a page, with its own content
+     starting on the next page, is worse than pushing the heading down with
+     it - keep a heading glued to whatever follows it. */
+  body.noted-printing .noted-print-target .content h1,
+  body.noted-printing .noted-print-target .content h2,
+  body.noted-printing .noted-print-target .content h3,
+  body.noted-printing .noted-print-target .content h4,
+  body.noted-printing .noted-print-target .content h5,
+  body.noted-printing .noted-print-target .content h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* A table's header row shouldn't repeat awkwardly or get separated from
+     its first body row across a break. */
+  body.noted-printing .noted-print-target .content thead {
+    display: table-header-group;
   }
 }

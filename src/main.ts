@@ -7,24 +7,34 @@
 
 import { Pane } from "./pane";
 import { setupThemeToggle, type Theme } from "./theme";
+import { setupOfflineToggle } from "./offline";
 import { getJSON, setJSON } from "./storage";
+import { dualPaneIcon, singlePaneIcon } from "./icons";
+
+function readCurrentTheme(): Theme {
+  const attr = document.documentElement.getAttribute("data-theme");
+  return attr === "dark" || attr === "sakura" ? attr : "light";
+}
 
 const DUAL_KEY = "noted:dual-pane";
 
 function main(): void {
   const themeButton = document.getElementById("theme-toggle") as HTMLButtonElement | null;
   const dualButton = document.getElementById("dual-toggle") as HTMLButtonElement | null;
+  const offlineButton = document.getElementById("offline-toggle") as HTMLButtonElement | null;
   const panesContainer = document.getElementById("panes");
 
-  if (!themeButton || !dualButton || !panesContainer) {
-    throw new Error("main: expected #theme-toggle, #dual-toggle, and #panes in index.html");
+  if (!themeButton || !dualButton || !offlineButton || !panesContainer) {
+    throw new Error("main: expected #theme-toggle, #dual-toggle, #offline-toggle, and #panes in index.html");
   }
+
+  setupOfflineToggle(offlineButton);
 
   let currentTheme: Theme = setupThemeToggle(themeButton);
   themeButton.addEventListener("click", () => {
     // setupThemeToggle already flipped + persisted + applied; we just need
     // the current value for exports (Pane reads it lazily via getTheme).
-    currentTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    currentTheme = readCurrentTheme();
   });
 
   let panes: Pane[] = [];
@@ -60,7 +70,13 @@ function main(): void {
   });
 
   function updateDualButton(): void {
-    dualButton!.textContent = dual ? "Single window" : "Dual window";
+    // Icon and title/aria-label both describe the mode a click switches TO
+    // (matches theme.ts's fix - showing the CURRENT layout's icon next to
+    // the NEXT layout's label was the bug, they visibly disagreed).
+    const next = dual ? "Single window" : "Dual window";
+    dualButton!.innerHTML = dual ? singlePaneIcon : dualPaneIcon;
+    dualButton!.title = next;
+    dualButton!.setAttribute("aria-label", `${next} - currently ${dual ? "dual" : "single"} window`);
     dualButton!.setAttribute("aria-pressed", String(dual));
   }
 }

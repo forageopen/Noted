@@ -14,6 +14,13 @@ describe("buildStandaloneHtml (pure)", () => {
     const html = buildStandaloneHtml('<script>alert(1)</script>', "<p></p>", "light");
     expect(html).not.toContain("<script>alert(1)</script>");
   });
+
+  it("uses the sakura palette (charcoal bg, neon pink link color), not a light/dark fallback", () => {
+    const html = buildStandaloneHtml("Doc", "<p>x</p>", "sakura");
+    expect(html).toContain('data-theme="sakura"');
+    expect(html).toContain("#141316"); // sakura bg
+    expect(html).toContain("#ff5ec2"); // sakura link color
+  });
 });
 
 describe("withExtension (pure)", () => {
