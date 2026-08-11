@@ -189,6 +189,18 @@ body {
   text-decoration: underline;
 }
 
+.visitor-counters {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.visitor-badge {
+  height: 20px;
+  display: inline-block;
+}
+
 .app-title {
   font-family: "Erica One", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 22px;

@@ -9,6 +9,7 @@ import { Pane } from "./pane";
 import { setupThemeToggle, type Theme } from "./theme";
 import { setupOfflineToggle, setupOfflineUpdates } from "./offline";
 import { setupConfettiTrigger } from "./confetti";
+import { setupVisitorCounter } from "./visitor-counter";
 import { getJSON, setJSON } from "./storage";
 import { dualPaneIcon, singlePaneIcon } from "./icons";
 
@@ -32,6 +33,12 @@ function main(): void {
   setupOfflineToggle(offlineButton);
   setupOfflineUpdates();
   setupConfettiTrigger(logo);
+
+  const weekBadge = document.getElementById("visitor-week-badge") as HTMLImageElement | null;
+  const totalBadge = document.getElementById("visitor-total-badge") as HTMLImageElement | null;
+  if (weekBadge && totalBadge) {
+    setupVisitorCounter({ weekImg: weekBadge, totalImg: totalBadge });
+  }
 
   let currentTheme: Theme = setupThemeToggle(themeButton);
   themeButton.addEventListener("click", () => {
