@@ -6,6 +6,19 @@
  * on every visit - registration only happens when a visitor explicitly asks
  * for it, so "browser-native, no surprise background behavior" holds.
  *
+ * Builds to /sw.js at the SITE ROOT (package.json's build script - a
+ * separate esbuild invocation from src/main.ts's, which still goes to
+ * dist/), not dist/sw.js. This is load-bearing, not stylistic: a service
+ * worker's own script location caps the max scope it can ever control to
+ * that script's directory, UNLESS the server sends a
+ * `Service-Worker-Allowed` header - which neither this app's local dev
+ * server nor GitHub Pages (the deploy target) does. A previous version
+ * built to dist/sw.js and registered with scope "/", which Chromium
+ * rejects outright ("scope ('/') is not under the max scope allowed
+ * ('/dist/')") - offline mode silently never activated in any real
+ * browser. Confirmed fixed via an actual Playwright run: register while
+ * online, go fully offline, reload, still works.
+ *
  * Precache paths are resolved against `scope.registration.scope`, not
  * hardcoded absolute paths - this repo deploys under a subpath
  * (forageopen.github.io/Noted/), and resolving against scope keeps this
@@ -31,13 +44,13 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v2 (font asset added to the shell) - a new CACHE_NAME forces a
-// fresh precache on activate (see the "activate" handler below, which
-// deletes any cache whose name isn't CACHE_NAME), so an already-offline
-// visitor actually picks up newly added shell files instead of being
-// stuck with whatever was cached under the old name.
-const CACHE_NAME = "noted-shell-v2";
-const SHELL_PATHS = ["", "index.html", "styles.css", "dist/main.js", "dist/sw.js", "assets/fonts/EricaOne-Regular.woff2"];
+// Bumped to v3 (sw.js moved from dist/sw.js to the site root - v2's
+// visitors had no working registration to begin with, per the scope bug
+// above, so there's nothing of theirs to preserve) - a new CACHE_NAME
+// forces a fresh precache on activate (see the "activate" handler below,
+// which deletes any cache whose name isn't CACHE_NAME).
+const CACHE_NAME = "noted-shell-v3";
+const SHELL_PATHS = ["", "index.html", "styles.css", "dist/main.js", "sw.js", "assets/fonts/EricaOne-Regular.woff2"];
 
 function shellUrls(): string[] {
   return SHELL_PATHS.map((path) => new URL(path, scope.registration.scope).href);

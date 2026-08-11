@@ -8,7 +8,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json",
-    "build": "esbuild src/main.ts src/sw.ts --bundle --format=esm --target=es2022 --outdir=dist --external:buffer"
+    "build": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outdir=dist --external:buffer && esbuild src/sw.ts --bundle --format=esm --target=es2022 --outfile=sw.js --external:buffer"
   },
   "dependencies": {
     "docx": "^8.5.0",

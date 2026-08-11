@@ -35,15 +35,19 @@ jobs:
       - name: Build
         run: npm run build
 
-      # index.html/styles.css reference "dist/main.js" and
+      # index.html/styles.css reference "dist/main.js", "sw.js", and
       # "assets/fonts/..." with paths only correct when index.html sits at
-      # the repo root next to dist/ and assets/ (the local-dev layout).
-      # Stage a site/ folder that reproduces that layout exactly, so no
-      # path needs to change between local dev and the deployed site.
-      - name: Assemble static site (site/index.html + site/styles.css + site/dist/** + site/assets/**)
+      # the repo root next to dist/, sw.js, and assets/ (the local-dev
+      # layout). sw.js MUST sit at the site root, not under dist/ - see
+      # src/sw.ts's header comment for why (a service worker's own script
+      # location caps the max scope it can control; GitHub Pages can't set
+      # the Service-Worker-Allowed header that would otherwise be needed).
+      # Stage a site/ folder that reproduces the local-dev layout exactly,
+      # so no path needs to change between local dev and the deployed site.
+      - name: Assemble static site (site/index.html + site/styles.css + site/sw.js + site/dist/** + site/assets/**)
         run: |
           mkdir -p site
-          cp index.html styles.css site/
+          cp index.html styles.css sw.js site/
           cp -r dist site/dist
           cp -r assets site/assets
 

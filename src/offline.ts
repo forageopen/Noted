@@ -46,14 +46,30 @@ export async function checkOfflineReady(): Promise<boolean> {
 /** DOM: register src/sw.ts's compiled output and wait for it to activate.
  * Registered with a relative path/scope (not a hardcoded absolute one) so
  * this resolves correctly whether the app is served from the repo root, a
- * GitHub Pages project subpath, or localhost during development. */
+ * GitHub Pages project subpath, or localhost during development.
+ *
+ * The registration path is "sw.js" (site root), NOT "dist/sw.js" -
+ * load-bearing, not stylistic. A service worker's script location caps the
+ * max scope it can ever control to that script's own directory unless the
+ * server sends a `Service-Worker-Allowed` header, which neither this app's
+ * dev server nor GitHub Pages does. Registering "dist/sw.js" with scope
+ * "./" (i.e. "/") was rejected outright by Chromium - confirmed via an
+ * actual browser run, not just reasoning about it - so this app's offline
+ * mode never actually activated in any real browser until this file and
+ * package.json's build script (src/sw.ts now builds to /sw.js, a separate
+ * esbuild invocation from src/main.ts's) were fixed together. */
 export async function enableOffline(): Promise<boolean> {
   if (!isServiceWorkerSupported()) return false;
   try {
-    await navigator.serviceWorker.register("dist/sw.js", { scope: "./", type: "module" });
+    await navigator.serviceWorker.register("sw.js", { scope: "./", type: "module" });
     await navigator.serviceWorker.ready;
     return true;
-  } catch {
+  } catch (err) {
+    // Swallowed into a generic "error" button state for the visitor, but
+    // logged here rather than silently - a previous version's silent swallow
+    // is exactly what let the scope bug above go unnoticed: the button just
+    // said "error," with zero diagnostic trail toward why.
+    console.error("Noted: failed to register the offline service worker.", err);
     return false;
   }
 }

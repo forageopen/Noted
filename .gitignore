@@ -1,5 +1,6 @@
 node_modules/
 dist/
+/sw.js
 .DS_Store
 Thumbs.db
 *.log
