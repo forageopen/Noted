@@ -36,10 +36,12 @@ describe("badgeUrl (pure)", () => {
 });
 
 describe("setupVisitorCounter (DOM wiring)", () => {
+  const PROD = "forageopen.github.io";
+
   it("points the week badge at a key containing this week's ISO week and the total badge at a fixed key", () => {
     const weekImg = document.createElement("img");
     const totalImg = document.createElement("img");
-    setupVisitorCounter({ weekImg, totalImg }, new Date("2026-08-11T00:00:00Z"));
+    setupVisitorCounter({ weekImg, totalImg }, new Date("2026-08-11T00:00:00Z"), PROD);
 
     expect(weekImg.src).toContain("2026-W33");
     expect(weekImg.src).toContain("visitor-badge.laobi.icu");
@@ -50,7 +52,7 @@ describe("setupVisitorCounter (DOM wiring)", () => {
   it("gives the week and total badges different counter keys", () => {
     const weekImg = document.createElement("img");
     const totalImg = document.createElement("img");
-    setupVisitorCounter({ weekImg, totalImg }, new Date("2026-08-11T00:00:00Z"));
+    setupVisitorCounter({ weekImg, totalImg }, new Date("2026-08-11T00:00:00Z"), PROD);
 
     expect(weekImg.src).not.toBe(totalImg.src);
   });
@@ -58,9 +60,18 @@ describe("setupVisitorCounter (DOM wiring)", () => {
   it("produces a stable total-badge URL regardless of the current date", () => {
     const a = { weekImg: document.createElement("img"), totalImg: document.createElement("img") };
     const b = { weekImg: document.createElement("img"), totalImg: document.createElement("img") };
-    setupVisitorCounter(a, new Date("2026-01-01T00:00:00Z"));
-    setupVisitorCounter(b, new Date("2026-12-31T00:00:00Z"));
+    setupVisitorCounter(a, new Date("2026-01-01T00:00:00Z"), PROD);
+    setupVisitorCounter(b, new Date("2026-12-31T00:00:00Z"), PROD);
 
     expect(a.totalImg.src).toBe(b.totalImg.src);
+  });
+
+  it("does not set either badge's src on a non-production hostname (e.g. localhost, dev/E2E testing)", () => {
+    const weekImg = document.createElement("img");
+    const totalImg = document.createElement("img");
+    setupVisitorCounter({ weekImg, totalImg }, new Date("2026-08-11T00:00:00Z"), "localhost");
+
+    expect(weekImg.getAttribute("src")).toBeNull();
+    expect(totalImg.getAttribute("src")).toBeNull();
   });
 });

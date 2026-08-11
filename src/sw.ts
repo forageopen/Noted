@@ -44,12 +44,12 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v6 (footer visitor-counter badges changed dist/main.js's
-// content) - a new CACHE_NAME forces a fresh precache on activate (see the
-// "activate" handler below, which deletes any cache whose name isn't
-// CACHE_NAME) so offline users actually pick up the new bundle instead of
-// keeping a stale cache-first main.js forever.
-const CACHE_NAME = "noted-shell-v6";
+// Bumped to v7 (auto-hide footer + the visitor-counter production-hostname
+// guard changed dist/main.js's content) - a new CACHE_NAME forces a fresh
+// precache on activate (see the "activate" handler below, which deletes
+// any cache whose name isn't CACHE_NAME) so offline users actually pick up
+// the new bundle instead of keeping a stale cache-first main.js forever.
+const CACHE_NAME = "noted-shell-v7";
 const SHELL_PATHS = [
   "",
   "index.html",

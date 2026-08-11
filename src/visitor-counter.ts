@@ -32,6 +32,12 @@
 
 const SITE_ID = "forageopen.noted";
 
+/** The one hostname real visits arrive on. Guarding on this keeps local
+ * dev/preview/E2E-test page loads from inflating the real counters - they
+ * all point at the exact same counter keys production does, since the key
+ * is fixed at build time, not derived per-deployment. */
+const PRODUCTION_HOSTNAME = "forageopen.github.io";
+
 /** Pure: this Monday-Sunday ISO-8601 week, as e.g. "2026-W33". Computed in
  * UTC so it doesn't depend on the visitor's local timezone/DST. */
 export function isoWeekKey(date: Date): string {
@@ -61,8 +67,15 @@ export interface VisitorCounterElements {
   totalImg: HTMLImageElement;
 }
 
-/** DOM: point the two badge <img>s at this week's and the all-time counter. */
-export function setupVisitorCounter(elements: VisitorCounterElements, now: Date = new Date()): void {
+/** DOM: point the two badge <img>s at this week's and the all-time counter -
+ * only on the real production host, so localhost/preview/E2E-test loads
+ * don't count as real visits (see PRODUCTION_HOSTNAME above). */
+export function setupVisitorCounter(
+  elements: VisitorCounterElements,
+  now: Date = new Date(),
+  hostname: string = window.location.hostname,
+): void {
+  if (hostname !== PRODUCTION_HOSTNAME) return;
   elements.weekImg.src = badgeUrl(`${SITE_ID}.week.${isoWeekKey(now)}`, "this week");
   elements.totalImg.src = badgeUrl(`${SITE_ID}.total`, "total visitors");
 }

@@ -10,6 +10,7 @@ import { setupThemeToggle, type Theme } from "./theme";
 import { setupOfflineToggle, setupOfflineUpdates } from "./offline";
 import { setupConfettiTrigger } from "./confetti";
 import { setupVisitorCounter } from "./visitor-counter";
+import { setupFooterAutoHide } from "./footer";
 import { getJSON, setJSON } from "./storage";
 import { dualPaneIcon, singlePaneIcon } from "./icons";
 
@@ -39,6 +40,9 @@ function main(): void {
   if (weekBadge && totalBadge) {
     setupVisitorCounter({ weekImg: weekBadge, totalImg: totalBadge });
   }
+
+  const footer = document.querySelector<HTMLElement>(".app-footer");
+  if (footer) setupFooterAutoHide(footer);
 
   let currentTheme: Theme = setupThemeToggle(themeButton);
   themeButton.addEventListener("click", () => {
