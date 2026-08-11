@@ -6,9 +6,7 @@
 
 Read, write, compare, annotate, and export your documents in one place. With themes, multiple export formats, and offline support, everything stays in your browser and nothing leaves your machine.
 
-## Status
-
-Pre-implementation. Repository scaffolding only - governing docs are in place, application code is next.
+**[Try it live →](https://forageopen.github.io/Noted/)**
 
 ## v1 feature set
 
