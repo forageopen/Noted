@@ -91,3 +91,33 @@ export function setupOfflineToggle(button: HTMLButtonElement): void {
     void enableOffline().then((ok) => renderOfflineButton(button, ok ? "ready" : "error"));
   });
 }
+
+/** DOM: for a returning visitor who already has offline mode on, make sure
+ * a newer cached shell (sw.ts's CACHE_NAME bump) actually reaches them.
+ *
+ * The "fetch" handler in src/sw.ts is cache-first for every same-origin GET
+ * request - including the page navigation itself and assets like the
+ * favicon - so once a service worker is controlling the page, an *already
+ * cached* stale asset (e.g. a since-fixed favicon.svg) keeps being served
+ * even while fully online, until a NEWER service worker actually installs,
+ * activates (which deletes the old cache and re-fetches everything fresh),
+ * and takes over. Browsers check a registered sw.js for byte changes on
+ * their own schedule (at most every ~24h) unless prompted - `update()`
+ * forces that check now instead of waiting. Installing a new worker alone
+ * isn't enough, though: this specific page's already-open tab keeps its
+ * OLD controller (and stale cached resources) until reloaded, so this also
+ * reloads once `controllerchange` fires (a new worker just took over) -
+ * guarded by `reloaded` so a second `controllerchange` on the freshly
+ * reloaded page can't loop. */
+export function setupOfflineUpdates(): void {
+  if (!isServiceWorkerSupported()) return;
+
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded) return;
+    reloaded = true;
+    window.location.reload();
+  });
+
+  void navigator.serviceWorker.getRegistration().then((registration) => registration?.update());
+}

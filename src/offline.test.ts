@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it } from "vitest";
-import { renderOfflineButton, isServiceWorkerSupported, type OfflineState } from "./offline";
+import { describe, expect, it, vi } from "vitest";
+import { renderOfflineButton, isServiceWorkerSupported, setupOfflineUpdates, type OfflineState } from "./offline";
 
 describe("renderOfflineButton (pure DOM update)", () => {
   function button(): HTMLButtonElement {
@@ -58,5 +58,44 @@ describe("renderOfflineButton (pure DOM update)", () => {
 describe("isServiceWorkerSupported", () => {
   it("reflects whether navigator.serviceWorker exists (jsdom doesn't implement it)", () => {
     expect(isServiceWorkerSupported()).toBe("serviceWorker" in navigator);
+  });
+});
+
+describe("setupOfflineUpdates", () => {
+  function withServiceWorker(mock: unknown) {
+    Object.defineProperty(navigator, "serviceWorker", { value: mock, configurable: true });
+  }
+
+  it("does nothing when unsupported", () => {
+    Reflect.deleteProperty(navigator, "serviceWorker");
+    expect(() => setupOfflineUpdates()).not.toThrow();
+  });
+
+  it("proactively checks the existing registration for an update", async () => {
+    const update = vi.fn();
+    withServiceWorker({
+      addEventListener: vi.fn(),
+      getRegistration: () => Promise.resolve({ update }),
+    });
+    setupOfflineUpdates();
+    await vi.waitFor(() => expect(update).toHaveBeenCalled());
+  });
+
+  it("reloads exactly once when a new service worker takes control", () => {
+    let controllerChangeHandler: (() => void) | undefined;
+    withServiceWorker({
+      addEventListener: (event: string, handler: () => void) => {
+        if (event === "controllerchange") controllerChangeHandler = handler;
+      },
+      getRegistration: () => Promise.resolve(undefined),
+    });
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", { value: { reload }, writable: true, configurable: true });
+
+    setupOfflineUpdates();
+    controllerChangeHandler?.();
+    controllerChangeHandler?.();
+
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });

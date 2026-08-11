@@ -7,7 +7,7 @@
 
 import { Pane } from "./pane";
 import { setupThemeToggle, type Theme } from "./theme";
-import { setupOfflineToggle } from "./offline";
+import { setupOfflineToggle, setupOfflineUpdates } from "./offline";
 import { setupConfettiTrigger } from "./confetti";
 import { getJSON, setJSON } from "./storage";
 import { dualPaneIcon, singlePaneIcon } from "./icons";
@@ -30,6 +30,7 @@ function main(): void {
   }
 
   setupOfflineToggle(offlineButton);
+  setupOfflineUpdates();
   setupConfettiTrigger(logo);
 
   let currentTheme: Theme = setupThemeToggle(themeButton);
