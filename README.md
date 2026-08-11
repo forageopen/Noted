@@ -2,9 +2,9 @@
 
 ![Noted](assets/images/hero.png)
 
-> My very own browser-native Obsidian app.
+**Noted is a simple, private notepad for Markdown.**
 
-Drop a `.md` file in, read it, mark it up, compare it against another, export it - all in the browser, nothing ever leaves your machine.
+Read, write, compare, annotate, and export your documents in one place. With themes, multiple export formats, and offline support, everything stays in your browser and nothing leaves your machine.
 
 ## Status
 
