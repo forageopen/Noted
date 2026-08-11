@@ -1,5 +1,7 @@
 # Noted™ [FOGA]
 
+![Noted](assets/images/hero.png)
+
 > My very own browser-native Obsidian app.
 
 Drop a `.md` file in, read it, mark it up, compare it against another, export it - all in the browser, nothing ever leaves your machine.

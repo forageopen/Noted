@@ -1,11 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <!-- Cherry (Lucide icon-nodes.json "cherry" shape, same one used for the
-       Cherry theme's toggle icon - src/icons.ts's cherryIcon) - filled
-       here instead of stroked (favicon sizes are too small for a thin
-       outline to read clearly), in the Cherry theme's neon pink accent
-       (--ds-brand-bold, styles.css). The two cherry-body paths and the
-       leaf are closed shapes (end in "Z") so they fill cleanly; the stem
-       path is an open line, so it stays stroked, not filled. -->
+       Cherry theme's toggle icon: src/icons.ts's cherryIcon), filled here
+       instead of stroked since favicon sizes are too small for a thin
+       outline to read clearly, in the Cherry theme's neon pink accent
+       color (the brand bold custom property, styles.css). The two
+       cherry-body paths and the leaf are closed shapes (end in "Z") so
+       they fill cleanly; the stem path is an open line, so it stays
+       stroked, not filled. -->
   <path d="M2 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z" fill="#ff2ea6"/>
   <path d="M12 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z" fill="#ff2ea6"/>
   <path d="M7 14c3.22-2.91 4.29-8.75 5-12 1.66 2.38 4.94 9 5 12" fill="none" stroke="#ff2ea6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
