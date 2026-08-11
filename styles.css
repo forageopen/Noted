@@ -45,6 +45,11 @@
   --ds-radius: 3px;
   --ds-radius-large: 8px;
   --ds-focus-ring: #4c9aff;
+  /* .content's custom scrollbar width (styles.css's ::-webkit-scrollbar
+     rules) - a fixed value rather than each OS's variable default width,
+     so page-markers.ts can size/position its dot overlay to exactly match
+     without measuring it at runtime. */
+  --ds-scrollbar-width: 12px;
 
   /* Back-compat aliases so any not-yet-migrated rule keeps working */
   --bg: var(--ds-surface-sunken);
@@ -119,6 +124,11 @@ html[data-theme="sakura"] {
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--ds-surface-sunken);
@@ -128,6 +138,15 @@ body {
   font-size: 14px;
   line-height: 1.4285714286;
   -webkit-font-smoothing: antialiased;
+  /* The whole point of this layout: the browser window itself never
+     scrolls - only .content (inside each pane) does, so a long document
+     doesn't grow the page past the viewport. Everything from here down to
+     .content needs `height: 100%`/`flex: 1` + `min-height: 0` at every
+     level for that to actually hold - a flex/grid item's default
+     min-height is `auto` (= its content's natural height), which silently
+     overrides an explicit height and lets it grow past its container
+     instead of clipping/scrolling - the bug this replaces. */
+  overflow: hidden;
 }
 
 *:focus-visible {
@@ -136,9 +155,10 @@ body {
 }
 
 #app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app-header {
@@ -207,9 +227,12 @@ html[data-theme="sakura"] .fmt-btn:hover {
 
 .panes {
   flex: 1;
+  min-height: 0;
   display: grid;
+  grid-auto-rows: 1fr;
   gap: 16px;
   padding: 16px;
+  overflow: hidden;
 }
 
 .panes-single {
@@ -235,6 +258,7 @@ html[data-theme="sakura"] .fmt-btn:hover {
   box-shadow: var(--ds-shadow-raised);
   overflow: hidden;
   min-height: 20rem;
+  position: relative; /* anchors .page-markers (page-markers.ts) */
 }
 
 .pane-toolbar-row {
@@ -366,13 +390,63 @@ html[data-theme="sakura"] .fmt-btn:hover {
 
 .content {
   flex: 1;
+  min-height: 0; /* let it actually scroll instead of growing past the pane */
   padding: 16px 20px;
   overflow: auto;
   outline: none;
+  scrollbar-color: var(--ds-border-bold) transparent; /* Firefox */
+  scrollbar-width: thin;
 }
 
 .content[contenteditable="true"] {
   background: var(--ds-surface-sunken);
+}
+
+/* Chromium-only (this app's target, ADR-0003) scrollbar styling - a
+   consistent, slim, rounded, theme-colored scrollbar rather than each OS's
+   default chrome, so the page-marker dots (page-markers.ts) read as part
+   of one deliberate scrollbar rather than an overlay on top of a mismatched
+   native one. */
+.content::-webkit-scrollbar {
+  width: var(--ds-scrollbar-width);
+}
+.content::-webkit-scrollbar-track {
+  background: var(--ds-surface-sunken);
+}
+.content::-webkit-scrollbar-thumb {
+  background: var(--ds-border-bold);
+  border-radius: var(--ds-radius-large);
+  border: 3px solid var(--ds-surface-sunken);
+}
+.content::-webkit-scrollbar-thumb:hover {
+  background: var(--ds-brand-bold);
+}
+
+/* A4-page markers (page-markers.ts) - a thin overlay positioned exactly
+   over .content's scrollbar track (same width as --ds-scrollbar-width, same
+   right edge), so the dots read as embedded in the scrollbar rather than a
+   separate strip next to it. pointer-events:none on the track itself so it
+   never blocks scrolling/dragging the real thumb underneath; individual
+   dots re-enable pointer-events so they're still hoverable. */
+.page-markers {
+  position: absolute;
+  right: 0;
+  width: var(--ds-scrollbar-width);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.page-marker-dot {
+  position: absolute;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-brand-bold);
+  border: 1px solid var(--ds-surface-sunken);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: default;
 }
 
 .export-controls {

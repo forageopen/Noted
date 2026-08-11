@@ -36,6 +36,7 @@ import { exportHtml, withExtension, downloadBlob } from "./export/html";
 import { docxBlockstoBlob } from "./export/docx";
 import { exportJson } from "./export/json";
 import { blocksFromElement, blocksFromTokens, type Block } from "./document-model";
+import { setupPageMarkers } from "./page-markers";
 import type { Theme } from "./theme";
 
 export type PaneMode = "view" | "edit";
@@ -76,6 +77,7 @@ export class Pane {
   private editToolbar!: HTMLElement;
   private contentEl!: HTMLElement;
   private exportButtons!: HTMLButtonElement[];
+  private stopPageMarkers!: () => void;
 
   constructor(container: HTMLElement, getTheme: () => Theme) {
     this.id = ++paneCounter;
@@ -87,10 +89,12 @@ export class Pane {
 
     this.render();
     this.wire();
+    this.stopPageMarkers = setupPageMarkers(this.root, this.contentEl);
   }
 
   /** Remove this pane's DOM and let it be garbage collected. */
   destroy(): void {
+    this.stopPageMarkers();
     this.root.remove();
   }
 
