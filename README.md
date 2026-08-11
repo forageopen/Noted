@@ -1,4 +1,4 @@
-# Noted™ [FOGA]
+# Noted™
 
 ![Noted](assets/images/hero.png)
 
