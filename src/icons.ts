@@ -1,43 +1,81 @@
 /**
  * src/icons.ts
  *
- * Small hand-authored inline SVG icons for the header's icon-only buttons
- * (theme cycle, dual-window toggle, offline toggle) - no icon-library
- * dependency added; these are a handful of simple 18x18 outline/glyph
- * shapes using `currentColor`, so they automatically match each button's
- * text color (and therefore each theme, including Sakura's pink) with no
- * extra CSS.
+ * Icons for the header's icon-only buttons (theme cycle, dual-window
+ * toggle, offline toggle) and the edit toolbar's highlighter toggle -
+ * Lucide (https://lucide.dev, ISC license). No `lucide`/`lucide-static`
+ * package dependency added - those ship ~1700 icons across multiple
+ * formats (tens of MB) for the 7 this app actually uses, which doesn't fit
+ * this app's "no unnecessary dependencies" posture (ADR-002) when the
+ * alternative is embedding the handful of path/shape definitions we need
+ * directly, sourced from Lucide's own icon-nodes.json. Same rendering
+ * convention Lucide itself uses: 24x24 viewBox, stroke=currentColor
+ * (so every icon automatically matches each button's text color, and
+ * therefore each theme, with no extra CSS), no fill.
  */
 
 const SIZE = 18;
 
-function outlineIcon(paths: string): string {
-  return `<svg viewBox="0 0 24 24" width="${SIZE}" height="${SIZE}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+type LucideNode = [tag: string, attrs: Record<string, string>];
+
+function lucideIcon(nodes: LucideNode[]): string {
+  const body = nodes
+    .map(([tag, attrs]) => {
+      const attrString = Object.entries(attrs)
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(" ");
+      return `<${tag} ${attrString}/>`;
+    })
+    .join("");
+  return `<svg viewBox="0 0 24 24" width="${SIZE}" height="${SIZE}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
-/** Sakura theme's icon - a simplified 4-petal blossom (filled, not outline,
- * since a flower reads better solid than as a thin outline at 18px). */
-export const blossomIcon = `<svg viewBox="0 0 24 24" width="${SIZE}" height="${SIZE}" fill="currentColor" aria-hidden="true"><circle cx="12" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><circle cx="12" cy="12" r="2.5"/></svg>`;
+/** Highlighter-toggle icon (edit toolbar's color popover trigger). Lucide "highlighter". */
+export const highlighterIcon = lucideIcon([
+  ["path", { d: "m9 11-6 6v3h9l3-3" }],
+  ["path", { d: "m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" }],
+]);
 
-export const dualPaneIcon = outlineIcon('<rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/>');
+/** Sakura theme's icon. Lucide "flower". */
+export const blossomIcon = lucideIcon([
+  ["circle", { cx: "12", cy: "12", r: "3" }],
+  ["path", { d: "M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5" }],
+  ["path", { d: "M12 7.5V9" }],
+  ["path", { d: "M7.5 12H9" }],
+  ["path", { d: "M16.5 12H15" }],
+  ["path", { d: "M12 16.5V15" }],
+  ["path", { d: "m8 8 1.88 1.88" }],
+  ["path", { d: "M14.12 9.88 16 8" }],
+  ["path", { d: "m8 16 1.88-1.88" }],
+  ["path", { d: "M14.12 14.12 16 16" }],
+]);
 
-export const singlePaneIcon = outlineIcon('<rect x="4" y="4" width="16" height="16" rx="1"/>');
+/** Cherry theme's icon. Lucide "cherry". */
+export const cherryIcon = lucideIcon([
+  ["path", { d: "M2 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z" }],
+  ["path", { d: "M12 17a5 5 0 0 0 10 0c0-2.76-2.5-5-5-3-2.5-2-5 .24-5 3Z" }],
+  ["path", { d: "M7 14c3.22-2.91 4.29-8.75 5-12 1.66 2.38 4.94 9 5 12" }],
+  ["path", { d: "M22 9c-4.29 0-7.14-2.33-10-7 5.71 0 10 4.67 10 7Z" }],
+]);
 
-export const cloudDownloadIcon = outlineIcon(
-  '<path d="M7 18a4 4 0 0 1-1-7.874A5 5 0 0 1 15.9 6.02 4.5 4.5 0 0 1 18 14.5H17"/><path d="M12 12v8M9 17l3 3 3-3"/>',
-);
+/** Dual-window icon. Lucide "columns-2". */
+export const dualPaneIcon = lucideIcon([
+  ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }],
+  ["path", { d: "M12 3v18" }],
+]);
 
-export const cloudCheckIcon = outlineIcon(
-  '<path d="M7 18a4 4 0 0 1-1-7.874A5 5 0 0 1 15.9 6.02 4.5 4.5 0 0 1 18 14.5H17"/><path d="m9 15 2 2 4-4"/>',
-);
+/** Single-window icon. Lucide "square". */
+export const singlePaneIcon = lucideIcon([["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }]]);
 
-/** Highlighter-toggle icon (edit toolbar's color popover trigger) - a
- * marker/highlighter pen glyph. */
-export const highlighterIcon = outlineIcon(
-  '<path d="M9.5 19 3 20l1-6.5L14.5 3 21 9.5 9.5 19Z"/><path d="M13 5.5 18.5 11"/><path d="M3 20h5"/>',
-);
+/** Offline toggle, not-yet-enabled state. Lucide "cloud-download". */
+export const cloudDownloadIcon = lucideIcon([
+  ["path", { d: "M12 13v8l-4-4" }],
+  ["path", { d: "m12 21 4-4" }],
+  ["path", { d: "M4.393 15.269A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.436 8.284" }],
+]);
 
-/** Cherry theme's icon - two cherries (filled) on curved stems, matching
- * blossomIcon's filled-not-outline treatment (reads better solid at 18px
- * than as a thin outline). */
-export const cherryIcon = `<svg viewBox="0 0 24 24" width="${SIZE}" height="${SIZE}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="17" r="3" fill="currentColor" stroke="none"/><circle cx="16" cy="18" r="3" fill="currentColor" stroke="none"/><path d="M8 14C8 9 10 6 13 4M16 15c0-3 1-6 3-8"/></svg>`;
+/** Offline toggle, enabled state. Lucide "cloud-check". */
+export const cloudCheckIcon = lucideIcon([
+  ["path", { d: "m17 15-5.5 5.5L9 18" }],
+  ["path", { d: "M5.516 16.07A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 3.501 7.327" }],
+]);

@@ -42,6 +42,18 @@ import type { Theme } from "./theme";
 
 export type PaneMode = "view" | "edit";
 
+/** Pure: splits a filename into its base and extension (extension includes
+ * the leading dot, e.g. "Untitled.md" -> { base: "Untitled", ext: ".md" }).
+ * A name with no dot (or a dot only as the very first character, e.g. a
+ * dotfile) has no extension - the whole thing is the base. Only the base
+ * half is ever user-editable (see wireFileNameRename) - the extension
+ * stays locked so a rename can't accidentally drop or corrupt it. */
+export function splitFileName(name: string): { base: string; ext: string } {
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex <= 0) return { base: name, ext: "" };
+  return { base: name.slice(0, dotIndex), ext: name.slice(dotIndex) };
+}
+
 // 18 pastel highlighter colors (Material "200"-tier shades, chosen for
 // consistent lightness so the forced-black text below reads well against
 // every one of them). Shown in a popover (see .highlight-popover in
@@ -107,6 +119,8 @@ export class Pane {
   private browseButton!: HTMLButtonElement;
   private copyButton!: HTMLButtonElement;
   private fileNameLabel!: HTMLElement;
+  private fileNameBase!: HTMLElement;
+  private fileNameExt!: HTMLElement;
   private tabView!: HTMLButtonElement;
   private tabEdit!: HTMLButtonElement;
   private editToolbar!: HTMLElement;
@@ -145,7 +159,7 @@ export class Pane {
         <div class="file-controls">
           <button type="button" class="btn browse-btn">Open file&hellip;</button>
           <input type="file" class="file-input" accept=".md,.markdown" hidden />
-          <span class="file-name">No file loaded</span>
+          <span class="file-name"><span class="file-name-base">No file loaded</span><span class="file-name-ext"></span></span>
         </div>
         <div class="tabs" role="tablist">
           <button type="button" class="tab-btn tab-view active" data-mode="view" role="tab" aria-selected="true">Viewer</button>
@@ -191,6 +205,8 @@ export class Pane {
     this.browseButton = this.q<HTMLButtonElement>(".browse-btn");
     this.copyButton = this.q<HTMLButtonElement>(".copy-btn");
     this.fileNameLabel = this.q(".file-name");
+    this.fileNameBase = this.q(".file-name-base");
+    this.fileNameExt = this.q(".file-name-ext");
     this.tabView = this.q<HTMLButtonElement>(".tab-view");
     this.tabEdit = this.q<HTMLButtonElement>(".tab-edit");
     this.editToolbar = this.q(".edit-toolbar");
@@ -325,53 +341,61 @@ export class Pane {
     return { close: () => setOpen(false), stop: () => document.removeEventListener("click", onOutsideClick) };
   }
 
-  /** Click the file-name label to rename it in place; clicking anywhere
-   * else (blur) confirms. Enter also confirms, Escape cancels. Only
-   * active once a file exists (loaded or newly created - createNewFile())
-   * - clicking "No file loaded" is a no-op. Mirrors the same contentEditable
-   * rename pattern used for widget titles elsewhere (focus + select-all on
-   * start, blur-commits, Escape-reverts). */
+  /** Click the file-name (base or extension - the wrapper) to rename it in
+   * place; clicking anywhere else (blur) confirms. Enter also confirms,
+   * Escape cancels. Only active once a file exists (loaded or newly
+   * created - createNewFile()) - clicking "No file loaded" is a no-op.
+   *
+   * Only the base name (`.file-name-base`) is ever editable - the
+   * extension (`.file-name-ext`) is locked, always re-appended on commit,
+   * so renaming "Untitled.md" can't accidentally drop or corrupt the
+   * ".md". Mirrors the same contentEditable rename pattern used for
+   * widget titles elsewhere (focus + select-all on start, blur-commits,
+   * Escape-reverts). */
   private wireFileNameRename(): void {
-    let previousName = "";
+    let previousBase = "";
 
     const startEditing = (): void => {
-      if (this.fileName === null || this.fileNameLabel.contentEditable === "true") return;
-      previousName = this.fileName;
-      this.fileNameLabel.contentEditable = "true";
-      this.fileNameLabel.focus();
+      if (this.fileName === null || this.fileNameBase.contentEditable === "true") return;
+      previousBase = splitFileName(this.fileName).base;
+      this.fileNameBase.contentEditable = "true";
+      this.fileNameBase.focus();
       const range = document.createRange();
-      range.selectNodeContents(this.fileNameLabel);
+      range.selectNodeContents(this.fileNameBase);
       const selection = window.getSelection();
       selection?.removeAllRanges();
       selection?.addRange(range);
     };
 
     const commitEditing = (): void => {
-      this.fileNameLabel.contentEditable = "false";
-      const newName = this.fileNameLabel.textContent?.trim() || previousName;
-      this.fileName = newName;
-      this.fileNameLabel.textContent = newName;
+      this.fileNameBase.contentEditable = "false";
+      const newBase = this.fileNameBase.textContent?.trim() || previousBase;
+      this.fileNameBase.textContent = newBase;
+      this.fileName = `${newBase}${this.fileNameExt.textContent ?? ""}`;
     };
 
     const cancelEditing = (): void => {
-      this.fileNameLabel.contentEditable = "false";
-      this.fileNameLabel.textContent = previousName;
+      this.fileNameBase.contentEditable = "false";
+      this.fileNameBase.textContent = previousBase;
     };
 
+    // Click anywhere on the wrapper (including over the locked extension)
+    // starts editing the base - only the base itself ever becomes
+    // contentEditable, so this can't be tricked into editing the extension.
     this.fileNameLabel.addEventListener("click", startEditing);
-    this.fileNameLabel.addEventListener("keydown", (event) => {
-      if (this.fileNameLabel.contentEditable !== "true") return;
+    this.fileNameBase.addEventListener("keydown", (event) => {
+      if (this.fileNameBase.contentEditable !== "true") return;
       if (event.key === "Enter") {
         event.preventDefault();
-        this.fileNameLabel.blur(); // blur listener below runs commitEditing()
+        this.fileNameBase.blur(); // blur listener below runs commitEditing()
       } else if (event.key === "Escape") {
         event.preventDefault();
         cancelEditing();
-        this.fileNameLabel.blur();
+        this.fileNameBase.blur();
       }
     });
-    this.fileNameLabel.addEventListener("blur", () => {
-      if (this.fileNameLabel.contentEditable === "true") commitEditing();
+    this.fileNameBase.addEventListener("blur", () => {
+      if (this.fileNameBase.contentEditable === "true") commitEditing();
     });
   }
 
@@ -385,7 +409,7 @@ export class Pane {
     this.rawMarkdown = file.content;
     this.displayMarkdown = stripFrontmatter(file.content);
     this.edited = false;
-    this.fileNameLabel.textContent = file.name;
+    this.renderFileName();
     this.dropZone.hidden = true;
     this.contentEl.hidden = false;
     this.contentEl.innerHTML = renderMarkdown(this.displayMarkdown);
@@ -405,7 +429,7 @@ export class Pane {
     this.rawMarkdown = "";
     this.displayMarkdown = "";
     this.edited = true;
-    this.fileNameLabel.textContent = this.fileName;
+    this.renderFileName();
     this.dropZone.hidden = true;
     this.contentEl.hidden = false;
     this.contentEl.innerHTML = "";
@@ -423,7 +447,8 @@ export class Pane {
     this.rawMarkdown = "";
     this.displayMarkdown = "";
     this.edited = false;
-    this.fileNameLabel.textContent = "No file loaded";
+    this.fileNameBase.textContent = "No file loaded";
+    this.fileNameExt.textContent = "";
     this.browseButton.textContent = "Open file…";
     this.contentEl.innerHTML = "";
     this.contentEl.hidden = true;
@@ -431,6 +456,16 @@ export class Pane {
     this.copyButton.disabled = true;
     this.exportToggle.disabled = true;
     this.setMode("view");
+  }
+
+  /** Renders `this.fileName` into the base/extension split (splitFileName)
+   * - called from load()/createNewFile(), not clearFile() (which has no
+   * real filename to split, just the "No file loaded" placeholder). */
+  private renderFileName(): void {
+    if (this.fileName === null) return;
+    const { base, ext } = splitFileName(this.fileName);
+    this.fileNameBase.textContent = base;
+    this.fileNameExt.textContent = ext;
   }
 
   private setMode(mode: PaneMode): void {

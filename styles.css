@@ -319,18 +319,25 @@ html[data-theme="cherry"] .fmt-btn:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer; /* click to rename (pane.ts) once a file exists - harmless no-op on "No file loaded" */
+  cursor: pointer; /* click anywhere (base or locked extension) to rename the base - pane.ts - harmless no-op on "No file loaded" */
   border-radius: var(--ds-radius);
   padding: 2px 4px;
   margin: -2px -4px; /* padding without shifting neighboring layout */
 }
 
-.file-name[contenteditable="true"] {
+/* Only .file-name-base ever becomes contentEditable - .file-name-ext
+   (the locked extension, e.g. ".md") never does, so it can't be edited
+   even if a click happens to land directly on it. */
+.file-name-base[contenteditable="true"] {
   cursor: text;
-  overflow: visible;
-  white-space: normal;
   background: var(--ds-surface-sunken);
   outline: 1px solid var(--ds-brand-bold);
+  padding: 0 2px;
+  border-radius: var(--ds-radius);
+}
+
+.file-name-ext {
+  opacity: 0.75; /* visually reads as "fixed," not part of what you just clicked into */
 }
 
 .tabs {
@@ -562,27 +569,24 @@ html[data-theme="cherry"] .fmt-btn:hover {
 
 .export-popover {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  top: 0;
+  left: calc(100% + 6px); /* beside the toggle button, not underneath it (was blocking the content below) */
   z-index: 5;
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* horizontal row of formats */
   gap: 4px;
   padding: 6px;
   background: var(--ds-surface-overlay);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius);
   box-shadow: var(--ds-shadow-raised);
+  white-space: nowrap;
 }
 /* Same fix as .edit-toolbar[hidden]/.highlight-popover[hidden] above: an
    explicit `display` on this class ties in specificity with the browser's
    plain `[hidden] { display: none }` rule. */
 .export-popover[hidden] {
   display: none;
-}
-
-.export-popover .export-btn {
-  text-align: left;
 }
 
 /* ---- Rendered Markdown content styling (both themes via variables) ---- */

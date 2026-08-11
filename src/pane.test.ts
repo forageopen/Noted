@@ -1,6 +1,24 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Pane } from "./pane";
+import { Pane, splitFileName } from "./pane";
+
+describe("splitFileName (pure)", () => {
+  it("splits a normal filename into base and extension (dot included)", () => {
+    expect(splitFileName("Untitled.md")).toEqual({ base: "Untitled", ext: ".md" });
+  });
+
+  it("uses the LAST dot, not the first, for names with multiple dots", () => {
+    expect(splitFileName("my.notes.v2.md")).toEqual({ base: "my.notes.v2", ext: ".md" });
+  });
+
+  it("treats a name with no dot as having no extension", () => {
+    expect(splitFileName("README")).toEqual({ base: "README", ext: "" });
+  });
+
+  it("treats a leading dot (dotfile) as no extension, not an empty base", () => {
+    expect(splitFileName(".gitignore")).toEqual({ base: ".gitignore", ext: "" });
+  });
+});
 
 function makeFile(name: string, content: string): File {
   return new File([content], name, { type: "text/markdown" });
@@ -269,44 +287,74 @@ describe("Export popover", () => {
   });
 });
 
-describe("File-name rename", () => {
-  it("clicking the label before any file is loaded is a no-op", () => {
+describe("File-name rename (extension locked, only the base is editable)", () => {
+  it("clicking before any file is loaded is a no-op", () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
     const label = pane.root.querySelector<HTMLElement>(".file-name")!;
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
 
     label.click();
 
     // jsdom reports an untouched contentEditable as undefined, not "false"
     // (a jsdom quirk, not spec behavior) - what actually matters is that
     // it did NOT flip to "true" (i.e. editing did not start).
-    expect(label.contentEditable).not.toBe("true");
+    expect(base.contentEditable).not.toBe("true");
     expect(label.textContent).toBe("No file loaded");
   });
 
-  it("clicking the label once a file is loaded starts editing", async () => {
+  it("splits the loaded name into a locked extension and an editable base", async () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
     await loadFile(pane, "a.md", "# Hello");
-    const label = pane.root.querySelector<HTMLElement>(".file-name")!;
 
-    label.click();
-
-    expect(label.contentEditable).toBe("true");
+    expect(pane.root.querySelector(".file-name-base")!.textContent).toBe("a");
+    expect(pane.root.querySelector(".file-name-ext")!.textContent).toBe(".md");
   });
 
-  it("blurring after editing commits the new name", async () => {
+  it("clicking (even directly on the locked extension) starts editing the base only", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    await loadFile(pane, "a.md", "# Hello");
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
+    const ext = pane.root.querySelector<HTMLElement>(".file-name-ext")!;
+
+    ext.click(); // clicks bubble to the wrapper's listener regardless of which child was clicked
+
+    expect(base.contentEditable).toBe("true");
+    expect(ext.contentEditable).not.toBe("true");
+  });
+
+  it("blurring after editing commits the new base and keeps the locked extension", async () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
     await loadFile(pane, "a.md", "# Hello");
     const label = pane.root.querySelector<HTMLElement>(".file-name")!;
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
 
     label.click();
-    label.textContent = "renamed.md";
-    label.dispatchEvent(new Event("blur"));
+    base.textContent = "renamed";
+    base.dispatchEvent(new Event("blur"));
 
-    expect(label.contentEditable).toBe("false");
-    expect(label.textContent).toBe("renamed.md");
+    expect(base.contentEditable).toBe("false");
+    expect(label.textContent).toBe("renamed.md"); // base + the untouched, locked extension
+  });
+
+  it("typing a full filename with an extension into the base doesn't create a double extension", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    await loadFile(pane, "a.md", "# Hello");
+    const label = pane.root.querySelector<HTMLElement>(".file-name")!;
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
+
+    label.click();
+    base.textContent = "renamed.md"; // user typed the extension too, out of habit
+    base.dispatchEvent(new Event("blur"));
+
+    // The locked .md is still appended after whatever was typed - this is
+    // an accepted, documented tradeoff of locking the extension (the base
+    // itself is not sanitized against embedded dots), not a bug.
+    expect(label.textContent).toBe("renamed.md.md");
   });
 
   it("works for a newly-created 'Untitled.md' file too", () => {
@@ -314,11 +362,13 @@ describe("File-name rename", () => {
     const pane = new Pane(container, () => "sakura");
     pane.root.querySelector<HTMLElement>(".drop-zone")!.click();
     const label = pane.root.querySelector<HTMLElement>(".file-name")!;
-    expect(label.textContent).toBe("Untitled.md");
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
+    expect(base.textContent).toBe("Untitled");
+    expect(pane.root.querySelector(".file-name-ext")!.textContent).toBe(".md");
 
     label.click();
-    label.textContent = "my-notes.md";
-    label.dispatchEvent(new Event("blur"));
+    base.textContent = "my-notes";
+    base.dispatchEvent(new Event("blur"));
 
     expect(label.textContent).toBe("my-notes.md");
   });
@@ -328,44 +378,47 @@ describe("File-name rename", () => {
     const pane = new Pane(container, () => "sakura");
     await loadFile(pane, "a.md", "# Hello");
     const label = pane.root.querySelector<HTMLElement>(".file-name")!;
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
     // jsdom doesn't reliably fire a real "blur" event from .blur() on a
     // non-form element (a known jsdom gap, even when attached to the
     // document) - spy to confirm the code calls it, then fire the event
     // manually to simulate what a real browser does at that point.
-    const blurSpy = vi.spyOn(label, "blur");
+    const blurSpy = vi.spyOn(base, "blur");
 
     label.click();
-    label.textContent = "enter-renamed.md";
-    label.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    base.textContent = "enter-renamed";
+    base.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     expect(blurSpy).toHaveBeenCalled();
-    label.dispatchEvent(new Event("blur"));
+    base.dispatchEvent(new Event("blur"));
 
-    expect(label.contentEditable).toBe("false");
+    expect(base.contentEditable).toBe("false");
     expect(label.textContent).toBe("enter-renamed.md");
   });
 
-  it("Escape reverts to the name before editing started", async () => {
+  it("Escape reverts to the base before editing started, extension untouched throughout", async () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
     await loadFile(pane, "a.md", "# Hello");
     const label = pane.root.querySelector<HTMLElement>(".file-name")!;
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
 
     label.click();
-    label.textContent = "should-not-stick.md";
-    label.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    base.textContent = "should-not-stick";
+    base.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 
     expect(label.textContent).toBe("a.md");
   });
 
-  it("blurring with an empty name falls back to the previous name rather than going blank", async () => {
+  it("blurring with an empty base falls back to the previous base rather than going blank", async () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
     await loadFile(pane, "a.md", "# Hello");
     const label = pane.root.querySelector<HTMLElement>(".file-name")!;
+    const base = pane.root.querySelector<HTMLElement>(".file-name-base")!;
 
     label.click();
-    label.textContent = "   ";
-    label.dispatchEvent(new Event("blur"));
+    base.textContent = "   ";
+    base.dispatchEvent(new Event("blur"));
 
     expect(label.textContent).toBe("a.md");
   });
