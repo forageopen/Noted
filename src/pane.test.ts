@@ -241,7 +241,7 @@ describe("Export popover", () => {
     expect(pane.root.querySelector<HTMLButtonElement>(".export-toggle")!.textContent).toBe("Export");
   });
 
-  it("toggle opens/closes the popover with all 4 formats, and updates aria-expanded", async () => {
+  it("toggle opens/closes the popover with all 5 formats (html/pdf/docx/md/json), and updates aria-expanded", async () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
     await loadFile(pane, "a.md", "# Hello");
@@ -253,7 +253,8 @@ describe("Export popover", () => {
     toggle.click();
     expect(popover.hidden).toBe(false);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(popover.querySelectorAll(".export-btn")).toHaveLength(4);
+    const formats = Array.from(popover.querySelectorAll<HTMLButtonElement>(".export-btn")).map((b) => b.dataset.export);
+    expect(formats).toEqual(["html", "pdf", "docx", "md", "json"]);
 
     toggle.click();
     expect(popover.hidden).toBe(true);
@@ -284,6 +285,39 @@ describe("Export popover", () => {
 
     expect(pane.root.querySelector<HTMLElement>(".export-popover")!.hidden).toBe(true);
     pane.root.remove();
+  });
+
+  it(".md export downloads the raw Markdown as-is - no adapter/conversion needed, it's already Markdown", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    await loadFile(pane, "a.md", "# Hello\nraw text");
+
+    // jsdom's Blob polyfill doesn't implement .text()/.arrayBuffer() - spy
+    // on the constructor itself to inspect what was actually passed in,
+    // same accommodation other Blob-based export tests in this repo need.
+    // Needs an explicit pass-through implementation - a bare vi.spyOn on a
+    // class constructor doesn't call the original, which breaks Blob for
+    // every test after this one if left as just a spy.
+    const OriginalBlob = globalThis.Blob;
+    const BlobSpy = vi.spyOn(globalThis, "Blob").mockImplementation((parts, options) => new OriginalBlob(parts, options));
+
+    pane.root.querySelector<HTMLButtonElement>(".export-toggle")!.click();
+    pane.root.querySelector<HTMLButtonElement>('.export-btn[data-export="md"]')!.click();
+
+    expect(BlobSpy).toHaveBeenCalledWith(["# Hello\nraw text"], { type: "text/markdown" });
+    BlobSpy.mockRestore();
+  });
+
+  it(".md export no-ops on a brand new file with no original Markdown source, same as Copy", () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    pane.root.querySelector<HTMLElement>(".drop-zone")!.click(); // createNewFile() - rawMarkdown stays ""
+
+    const createObjectURLSpy = vi.spyOn(URL, "createObjectURL");
+    pane.root.querySelector<HTMLButtonElement>(".export-toggle")!.click();
+    pane.root.querySelector<HTMLButtonElement>('.export-btn[data-export="md"]')!.click();
+
+    expect(createObjectURLSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -433,10 +467,10 @@ describe("Paragraph style popover (H1-H6 / Body)", () => {
     return pane;
   }
 
-  it("offers H1 through H6 plus Body", async () => {
+  it("offers H1 through H3 plus Body", async () => {
     const pane = await openEditWithFile();
     const labels = Array.from(pane.root.querySelectorAll(".paragraph-style-btn")).map((b) => b.textContent);
-    expect(labels).toEqual(["H1", "H2", "H3", "H4", "H5", "H6", "Body"]);
+    expect(labels).toEqual(["H1", "H2", "H3", "Body"]);
   });
 
   it("toggle opens/closes the popover and updates aria-expanded", async () => {

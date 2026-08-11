@@ -80,19 +80,16 @@ const HIGHLIGHT_COLORS = [
   { label: "Lime", value: "#e6ee9c" },
 ];
 
-// Paragraph-style popover entries (edit toolbar) - H1-H6 plus Body (normal
+// Paragraph-style popover entries (edit toolbar) - H1-H3 plus Body (normal
 // paragraph text), matching Obsidian's font-size/paragraph-style setting.
 // `block` is the tag name passed to execCommand("formatBlock", ...);
 // `previewSize` renders each button's own label at roughly its real
 // relative size, same as Obsidian's dropdown, so the list itself doubles
-// as a size preview rather than 7 identically-sized text buttons.
+// as a size preview rather than identically-sized text buttons.
 const PARAGRAPH_STYLES = [
   { label: "H1", block: "H1", previewSize: "1.3em" },
   { label: "H2", block: "H2", previewSize: "1.2em" },
   { label: "H3", block: "H3", previewSize: "1.1em" },
-  { label: "H4", block: "H4", previewSize: "1em" },
-  { label: "H5", block: "H5", previewSize: "0.95em" },
-  { label: "H6", block: "H6", previewSize: "0.9em" },
   { label: "Body", block: "P", previewSize: "0.85em" },
 ];
 
@@ -191,6 +188,7 @@ export class Pane {
             <button type="button" class="btn export-btn" data-export="html">.html</button>
             <button type="button" class="btn export-btn" data-export="pdf">.pdf</button>
             <button type="button" class="btn export-btn" data-export="docx">.docx</button>
+            <button type="button" class="btn export-btn" data-export="md">.md</button>
             <button type="button" class="btn export-btn" data-export="json">.json</button>
           </div>
         </span>
@@ -552,6 +550,20 @@ export class Pane {
     if (format === "docx") {
       const blob = await docxBlockstoBlob(this.buildDocumentModel());
       downloadBlob(withExtension(title, "docx"), blob, blob.type);
+      return;
+    }
+    if (format === "md") {
+      // No adapter needed - this IS already Markdown, just written to a
+      // file instead of the clipboard. Same contract as the Copy button
+      // (PRODUCT-SPEC Section 3: raw Markdown, not rendered/edited HTML)
+      // and the same limitation: if the pane has been edited, those edits
+      // live only in the DOM (see the module doc comment), so this can
+      // only ever export the ORIGINAL loaded text, not the edited result -
+      // reconstructing Markdown from edited HTML is explicitly out of
+      // scope. No-ops on an empty rawMarkdown (a brand new, never-loaded
+      // file), same as Copy.
+      if (!this.rawMarkdown) return;
+      downloadBlob(withExtension(title, "md"), this.rawMarkdown, "text/markdown");
       return;
     }
     if (format === "json") {
