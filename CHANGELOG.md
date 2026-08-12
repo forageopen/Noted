@@ -9,6 +9,10 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 - "Echo" typing effect: each keystroke in Edit mode spawns a warm accent-colored duplicate of the glyph that expands and fades over ~180ms. First of a planned three-mode composite typing experience (Echo on insert; Sublime decay on delete and "Warp" caret-movement animation to follow). Respects `prefers-reduced-motion`.
 - "Sublime" typing effect: each single-character delete (Backspace/Delete) decays the removed glyph top-down over ~1s - the upper half fades/blurs/lifts first while the lower half is still intact, with four small dust motes drifting up behind it. The real deletion is untouched and instant; this is a purely decorative overlay on top of it. Second of the three-mode composite typing experience (Warp caret-movement animation still to follow). Respects `prefers-reduced-motion`.
 
+### Fixed
+
+- A returning visitor with offline mode previously enabled would keep being served the pre-Echo/Sublime cached app shell indefinitely: `src/sw.ts`'s `CACHE_NAME` wasn't bumped when those two changes shipped, and a service worker only re-installs when its own script's bytes change - `sw.ts` itself was untouched, so nothing ever triggered a re-cache even though the deploy had landed. Bumped `CACHE_NAME` to `v8`.
+
 ## [1.1.0] - 2026-08-11
 
 ### Added
