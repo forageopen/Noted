@@ -1,7 +1,7 @@
 /**
  * src/typing-effects.ts
  *
- * Composite typing experience, two modes so far:
+ * Composite typing experience, three modes:
  *
  * - "Echo" (on insert): the real glyph appears instantly (the browser's own
  *   insertion - untouched) and a warm duplicate of it expands and fades off,
@@ -10,13 +10,16 @@
  *   half fades/blurs/lifts first while the lower half is still intact,
  *   with four small dust motes drifting up behind it. The longest and
  *   quietest of the set (~1s), deliberately with none of Echo's punch.
+ * - "Warp" (on caret movement): a persistent quad tracks the caret between
+ *   same-line positions. Its two edges (leading/trailing) each ease toward
+ *   the new position with a different time constant, so the quad visibly
+ *   stretches between the old and new spot before "re-forming" into a thin
+ *   bar once the trailing edge catches up - the most liquid of the three.
  *
- * Both are purely decorative and never block or delay the actual edit -
+ * All three are purely decorative and never block or delay the actual edit -
  * Sublime in particular must capture the about-to-be-deleted character's
  * position on `beforeinput` (before the browser removes it), then let the
  * real deletion proceed untouched.
- *
- * "Warp" (caret movement) is a planned third mode, not yet implemented.
  *
  * Respects prefers-reduced-motion (styles.css) by disabling the animations
  * entirely, same as confetti.ts.
@@ -62,6 +65,14 @@ function getOverlay(): HTMLElement {
  * color they're over. */
 function readAccentColor(): string {
   return window.getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "currentColor";
+}
+
+/** matchMedia isn't implemented in the jsdom test environment (and is
+ * absent in some very old/minimal browsers) - guard it the same way
+ * offline.ts guards `"serviceWorker" in navigator`, defaulting to "motion
+ * is fine" when the check itself isn't available. */
+function prefersReducedMotion(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export interface GlyphRect {
@@ -275,14 +286,205 @@ export function spawnSublimeDecay(
 }
 
 // ---------------------------------------------------------------------
+// Warp (caret movement)
+// ---------------------------------------------------------------------
+
+export interface CaretPoint {
+  x: number;
+  top: number;
+  height: number;
+}
+
+/** DOM: the current (collapsed) caret's on-screen position - a single
+ * point, not a character box (contrast caretCharacterRect /
+ * caretDeletionTarget, which need a real glyph's width). A collapsed
+ * Range's getBoundingClientRect() reliably reports the caret's visual x
+ * position in real browsers even though the range itself has zero width -
+ * that's expected here, not an error condition (contrast Echo/Sublime's
+ * zero-width guard, which really does mean "nothing to show"). Returns
+ * null when there's no usable caret: no selection, a real multi-character
+ * selection, or a degenerate zero-height rect (e.g. an un-laid-out node). */
+export function currentCaretPoint(): CaretPoint | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return null;
+  const rect = selection.getRangeAt(0).getBoundingClientRect();
+  if (rect.height === 0) return null;
+  return { x: rect.left, top: rect.top, height: rect.height };
+}
+
+/** Pure: whether a caret move from `prev` to `next` is "between cells" on
+ * the same line and therefore worth the stretch treatment. A jump to a
+ * different line (top/height changed - Enter, a click on another
+ * paragraph, an Up/Down arrow) has no continuous glyph path to stretch
+ * across, so Warp snaps silently instead of animating. */
+export function isSameLineMove(prev: CaretPoint, next: CaretPoint): boolean {
+  return Math.abs(prev.top - next.top) < 1 && Math.abs(prev.height - next.height) < 1 && prev.x !== next.x;
+}
+
+export interface WarpEdges {
+  leadingX: number;
+  trailingX: number;
+}
+
+/** Independent time constants (ms) for the caret quad's two edges - the
+ * leading edge closes the gap to the target much faster than the trailing
+ * edge, so the quad visibly stretches between the old and new position
+ * before "re-forming" once the trailing edge catches up. */
+const WARP_LEADING_TAU_MS = 35;
+const WARP_TRAILING_TAU_MS = 110;
+const WARP_CONVERGE_EPSILON_PX = 0.5;
+/** Below this, the two edges are close enough that a bare min-width bar
+ * reads better than an accumulating rounding sliver. */
+const WARP_MIN_WIDTH_PX = 2;
+/** Assumed frame interval for a controller's very first tick, where there's
+ * no previous real timestamp yet to derive an actual elapsed time from. */
+const WARP_ASSUMED_FIRST_FRAME_MS = 16;
+
+/** Pure: one exponential-decay step of `current` toward `target` over
+ * `dtMs` milliseconds, with time constant `tauMs` (smaller = faster). The
+ * standard framerate-independent lerp - unlike a fixed per-frame
+ * multiplier, the same wall-clock time produces the same total motion
+ * regardless of display refresh rate. */
+export function warpDecay(current: number, target: number, dtMs: number, tauMs: number): number {
+  const factor = 1 - Math.exp(-dtMs / tauMs);
+  return current + (target - current) * factor;
+}
+
+/** Pure: advances both edges one frame toward `targetX`, independently -
+ * "two floats, one quad". */
+export function stepWarpEdges(edges: WarpEdges, targetX: number, dtMs: number): WarpEdges {
+  return {
+    leadingX: warpDecay(edges.leadingX, targetX, dtMs, WARP_LEADING_TAU_MS),
+    trailingX: warpDecay(edges.trailingX, targetX, dtMs, WARP_TRAILING_TAU_MS),
+  };
+}
+
+/** Pure: both edges have effectively arrived at the target - "re-formed"
+ * into a thin bar, safe to stop animating. */
+export function warpConverged(edges: WarpEdges, targetX: number): boolean {
+  return Math.abs(edges.leadingX - targetX) < WARP_CONVERGE_EPSILON_PX && Math.abs(edges.trailingX - targetX) < WARP_CONVERGE_EPSILON_PX;
+}
+
+/** DOM: builds the persistent Warp quad element for one pane - created
+ * once and repositioned/resized every animation frame (updateWarpQuadRect)
+ * rather than spawned-and-discarded like Echo/Sublime's pieces, since Warp
+ * tracks one continuously-moving caret rather than reacting to one-shot
+ * keystrokes. Color comes from CSS (`background: var(--accent)`,
+ * styles.css), not an inline style, so it keeps tracking the live theme
+ * for as long as this element exists - unlike Echo/Sublime's short-lived
+ * pieces, a per-pane Warp quad can outlive a theme toggle. */
+export function createWarpQuadEl(): HTMLElement {
+  const el = document.createElement("span");
+  el.className = "warp-quad";
+  return el;
+}
+
+/** DOM: snaps the quad's vertical placement (line position/height) -
+ * always instant, never stretched, since only horizontal movement within
+ * a line gets the animated treatment. */
+export function setWarpQuadLine(el: HTMLElement, top: number, height: number): void {
+  el.style.top = `${top}px`;
+  el.style.height = `${height}px`;
+}
+
+/** DOM: repositions the quad's horizontal span from its two current edge
+ * positions - the actual "stretch," recomputed every animation frame. */
+export function updateWarpQuadRect(el: HTMLElement, edges: WarpEdges): void {
+  const left = Math.min(edges.leadingX, edges.trailingX);
+  const width = Math.max(WARP_MIN_WIDTH_PX, Math.abs(edges.leadingX - edges.trailingX));
+  el.style.left = `${left}px`;
+  el.style.width = `${width}px`;
+}
+
+export interface WarpCaretController {
+  /** Called whenever the caret has (possibly) moved. A same-line move
+   * kicks off/retargets the stretch animation, continuing smoothly from
+   * wherever the edges currently are if one was already in flight (rather
+   * than restarting) - that's what keeps rapid consecutive moves feeling
+   * continuous instead of snapping each time. Anything else (a different
+   * line, or the very first placement) snaps instantly with no animation. */
+  moveTo(point: CaretPoint): void;
+  /** Cancels any in-flight animation and removes the quad element. */
+  stop(): void;
+}
+
+/** DOM: creates one pane's persistent Warp caret controller.
+ * `schedule`/`cancelSchedule`/`now` default to requestAnimationFrame /
+ * cancelAnimationFrame / performance.now but are injectable so tests can
+ * drive the animation deterministically instead of asserting on real
+ * frame timing (same intent as randomMoteSpec's injectable `random`). */
+export function createWarpCaretController(
+  overlay: HTMLElement,
+  schedule: (cb: (time: number) => void) => number = (cb) => requestAnimationFrame(cb),
+  cancelSchedule: (handle: number) => void = (handle) => cancelAnimationFrame(handle),
+): WarpCaretController {
+  const el = createWarpQuadEl();
+  let edges: WarpEdges | null = null;
+  let target: CaretPoint | null = null;
+  let rafHandle: number | null = null;
+  let lastTime = 0;
+
+  const stopLoop = (): void => {
+    if (rafHandle !== null) {
+      cancelSchedule(rafHandle);
+      rafHandle = null;
+    }
+  };
+
+  const tick = (time: number): void => {
+    if (!edges || !target) {
+      rafHandle = null;
+      return;
+    }
+    const dt = lastTime === 0 ? WARP_ASSUMED_FIRST_FRAME_MS : time - lastTime;
+    lastTime = time;
+    edges = stepWarpEdges(edges, target.x, dt);
+    updateWarpQuadRect(el, edges);
+
+    if (warpConverged(edges, target.x)) {
+      el.style.opacity = "0";
+      rafHandle = null;
+      return;
+    }
+    rafHandle = schedule(tick);
+  };
+
+  return {
+    moveTo(point: CaretPoint): void {
+      const previousTarget = target;
+      target = point;
+      setWarpQuadLine(el, point.top, point.height);
+
+      if (!previousTarget || !isSameLineMove(previousTarget, point)) {
+        edges = { leadingX: point.x, trailingX: point.x };
+        updateWarpQuadRect(el, edges);
+        el.style.opacity = "0";
+        stopLoop();
+        return;
+      }
+
+      if (!el.isConnected) overlay.appendChild(el);
+      el.style.opacity = "1";
+      if (!edges) edges = { leadingX: previousTarget.x, trailingX: previousTarget.x };
+      lastTime = 0;
+      if (rafHandle === null) rafHandle = schedule(tick);
+    },
+    stop(): void {
+      stopLoop();
+      el.remove();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------
 // Wiring
 // ---------------------------------------------------------------------
 
-/** Wires Echo and Sublime onto one editable pane's content element.
- * Returns a stop function that removes both listeners (call from
- * Pane.destroy(), same shape as setupPageMarkers). Safe to call once per
- * pane; each pane gets its own listeners but they all share one overlay
- * (getOverlay()). */
+/** Wires Echo, Sublime, and Warp onto one editable pane's content element.
+ * Returns a stop function that removes all listeners and tears down the
+ * Warp controller (call from Pane.destroy(), same shape as
+ * setupPageMarkers). Safe to call once per pane; each pane gets its own
+ * listeners/controller but they all share one overlay (getOverlay()). */
 export function setupTypingEffects(contentEl: HTMLElement): () => void {
   // Checks the attribute directly rather than isContentEditable - Pane
   // always sets contentEditable explicitly on this exact element (never
@@ -325,10 +527,31 @@ export function setupTypingEffects(contentEl: HTMLElement): () => void {
     spawnSublimeDecay(getOverlay(), target.char, target.rect, styledFontFor(caretNode), readAccentColor());
   };
 
+  // Warp is disabled outright under prefers-reduced-motion (not just
+  // hidden via CSS) - no controller, no rAF loop, no wasted work.
+  const warpCaret = prefersReducedMotion() ? null : createWarpCaretController(getOverlay());
+
+  // selectionchange is document-level (fires for the whole page, not
+  // scoped to this element), so every pane's own listener has to check the
+  // current selection actually belongs to ITS contentEl before reacting -
+  // otherwise both panes' Warp quads would react to whichever pane the
+  // user is actually typing in.
+  const onSelectionChange = (): void => {
+    if (!warpCaret || !isEditable()) return;
+    const selection = window.getSelection();
+    if (!selection?.anchorNode || !contentEl.contains(selection.anchorNode)) return;
+    const point = currentCaretPoint();
+    if (!point) return;
+    warpCaret.moveTo(point);
+  };
+
   contentEl.addEventListener("input", onInput);
   contentEl.addEventListener("beforeinput", onBeforeInput);
+  document.addEventListener("selectionchange", onSelectionChange);
   return () => {
     contentEl.removeEventListener("input", onInput);
     contentEl.removeEventListener("beforeinput", onBeforeInput);
+    document.removeEventListener("selectionchange", onSelectionChange);
+    warpCaret?.stop();
   };
 }

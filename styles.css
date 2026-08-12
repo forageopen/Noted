@@ -912,7 +912,7 @@ html[data-theme="cherry"] .fmt-btn:hover {
   }
 }
 
-/* ---- Typing effects: Echo + Sublime (src/typing-effects.ts) --------- */
+/* ---- Typing effects: Echo + Sublime + Warp (src/typing-effects.ts) -- */
 
 .typing-fx-overlay {
   position: fixed;
@@ -1029,6 +1029,28 @@ html[data-theme="cherry"] .fmt-btn:hover {
   .sublime-half-inner,
   .sublime-mote {
     animation: none;
+    display: none;
+  }
+}
+
+/* Warp: liquid caret stretch between same-line positions. One persistent
+   quad per pane (src/typing-effects.ts's createWarpCaretController), its
+   left/width/top/height driven per-frame by JS (the actual stretch - two
+   independently-eased edges can't be expressed as a single CSS
+   transition), opacity handled declaratively here so it fades in/out
+   smoothly around the JS-driven motion rather than snapping. */
+
+.warp-quad {
+  position: fixed;
+  pointer-events: none;
+  background: var(--accent); /* tracks live theme changes - no inline color set in JS */
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .warp-quad {
     display: none;
   }
 }

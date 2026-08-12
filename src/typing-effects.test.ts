@@ -11,6 +11,15 @@ import {
   randomMoteSpec,
   createMoteEl,
   spawnSublimeDecay,
+  currentCaretPoint,
+  isSameLineMove,
+  warpDecay,
+  stepWarpEdges,
+  warpConverged,
+  createWarpQuadEl,
+  setWarpQuadLine,
+  updateWarpQuadRect,
+  createWarpCaretController,
   setupTypingEffects,
 } from "./typing-effects";
 
@@ -344,6 +353,252 @@ describe("spawnSublimeDecay (DOM)", () => {
   });
 });
 
+describe("currentCaretPoint (DOM)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    window.getSelection()?.removeAllRanges();
+    restoreRect();
+  });
+
+  it("returns null when there is no selection", () => {
+    expect(currentCaretPoint()).toBeNull();
+  });
+
+  it("returns null for a non-collapsed selection", () => {
+    const div = document.createElement("div");
+    div.textContent = "ab";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 0);
+    range.setEnd(div.firstChild!, 2);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+
+    expect(currentCaretPoint()).toBeNull();
+  });
+
+  it("returns null for a degenerate zero-height rect", () => {
+    const div = document.createElement("div");
+    div.textContent = "a";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 0);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 5, top: 5, width: 0, height: 0 });
+
+    expect(currentCaretPoint()).toBeNull();
+  });
+
+  it("returns the collapsed caret's point - zero width is expected, not an error", () => {
+    const div = document.createElement("div");
+    div.textContent = "a";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 1);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 12, top: 8, width: 0, height: 18 });
+
+    expect(currentCaretPoint()).toEqual({ x: 12, top: 8, height: 18 });
+  });
+});
+
+describe("isSameLineMove (pure)", () => {
+  it("is true for a horizontal move on the same line", () => {
+    expect(isSameLineMove({ x: 10, top: 20, height: 16 }, { x: 30, top: 20, height: 16 })).toBe(true);
+  });
+
+  it("is false when the line changed (different top)", () => {
+    expect(isSameLineMove({ x: 10, top: 20, height: 16 }, { x: 10, top: 50, height: 16 })).toBe(false);
+  });
+
+  it("is false when the line height changed (e.g. a different heading level)", () => {
+    expect(isSameLineMove({ x: 10, top: 20, height: 16 }, { x: 30, top: 20, height: 26 })).toBe(false);
+  });
+
+  it("is false when x didn't actually change", () => {
+    expect(isSameLineMove({ x: 10, top: 20, height: 16 }, { x: 10, top: 20, height: 16 })).toBe(false);
+  });
+});
+
+describe("warpDecay (pure)", () => {
+  it("moves current toward target, never past it, for a positive gap", () => {
+    const next = warpDecay(0, 100, 16, 35);
+    expect(next).toBeGreaterThan(0);
+    expect(next).toBeLessThan(100);
+  });
+
+  it("is a no-op once current already equals target", () => {
+    expect(warpDecay(50, 50, 16, 35)).toBe(50);
+  });
+
+  it("a smaller time constant converges faster for the same dt", () => {
+    const fast = warpDecay(0, 100, 16, 20);
+    const slow = warpDecay(0, 100, 16, 200);
+    expect(fast).toBeGreaterThan(slow);
+  });
+
+  it("more elapsed time closes more of the gap", () => {
+    const soon = warpDecay(0, 100, 8, 50);
+    const later = warpDecay(0, 100, 64, 50);
+    expect(later).toBeGreaterThan(soon);
+  });
+});
+
+describe("stepWarpEdges (pure)", () => {
+  it("the leading edge (faster tau) closes more of the gap than the trailing edge in the same frame", () => {
+    const edges = stepWarpEdges({ leadingX: 0, trailingX: 0 }, 100, 16);
+    expect(edges.leadingX).toBeGreaterThan(edges.trailingX);
+  });
+});
+
+describe("warpConverged (pure)", () => {
+  it("is false while either edge is still meaningfully short of the target", () => {
+    expect(warpConverged({ leadingX: 99, trailingX: 40 }, 100)).toBe(false);
+  });
+
+  it("is true once both edges are within epsilon of the target", () => {
+    expect(warpConverged({ leadingX: 100, trailingX: 99.9 }, 100)).toBe(true);
+  });
+});
+
+describe("createWarpQuadEl / setWarpQuadLine / updateWarpQuadRect (DOM)", () => {
+  it("builds an unpositioned quad with the right class", () => {
+    const el = createWarpQuadEl();
+    expect(el.className).toBe("warp-quad");
+  });
+
+  it("setWarpQuadLine sets top/height only", () => {
+    const el = createWarpQuadEl();
+    setWarpQuadLine(el, 40, 18);
+    expect(el.style.top).toBe("40px");
+    expect(el.style.height).toBe("18px");
+  });
+
+  it("updateWarpQuadRect spans the two edges regardless of which is currently ahead", () => {
+    const el = createWarpQuadEl();
+    updateWarpQuadRect(el, { leadingX: 80, trailingX: 20 });
+    expect(el.style.left).toBe("20px");
+    expect(el.style.width).toBe("60px");
+  });
+
+  it("updateWarpQuadRect enforces a minimum width when the edges have nearly converged", () => {
+    const el = createWarpQuadEl();
+    updateWarpQuadRect(el, { leadingX: 50, trailingX: 50.1 });
+    expect(el.style.width).toBe("2px"); // WARP_MIN_WIDTH_PX, not the raw 0.1px gap
+  });
+});
+
+/** Manual fake scheduler for createWarpCaretController - captures the
+ * queued callback instead of running on real frame timing, so tests can
+ * advance the animation deterministically (same intent as vi.useFakeTimers
+ * elsewhere in this file, but for requestAnimationFrame's callback-based
+ * shape rather than setTimeout's). */
+function makeFakeScheduler() {
+  let queued: ((time: number) => void) | null = null;
+  let time = 0;
+  return {
+    schedule: (cb: (time: number) => void): number => {
+      queued = cb;
+      return 1;
+    },
+    cancelSchedule: (): void => {
+      queued = null;
+    },
+    hasQueued: (): boolean => queued !== null,
+    /** Fires the queued frame (if any) `dtMs` after the last one. */
+    tick(dtMs: number): void {
+      time += dtMs;
+      const cb = queued;
+      queued = null;
+      cb?.(time);
+    },
+  };
+}
+
+describe("createWarpCaretController (DOM + injectable scheduler)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("the first moveTo() (no previous position) snaps instantly - no animation, quad stays hidden", () => {
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    const scheduler = makeFakeScheduler();
+    const controller = createWarpCaretController(overlay, scheduler.schedule, scheduler.cancelSchedule);
+
+    controller.moveTo({ x: 10, top: 20, height: 16 });
+
+    expect(scheduler.hasQueued()).toBe(false);
+    expect(overlay.querySelectorAll(".warp-quad")).toHaveLength(0);
+  });
+
+  it("a same-line move after an initial placement starts the animation, appends and shows the quad", () => {
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    const scheduler = makeFakeScheduler();
+    const controller = createWarpCaretController(overlay, scheduler.schedule, scheduler.cancelSchedule);
+
+    controller.moveTo({ x: 10, top: 20, height: 16 });
+    controller.moveTo({ x: 40, top: 20, height: 16 });
+
+    expect(scheduler.hasQueued()).toBe(true);
+    const quad = overlay.querySelector(".warp-quad") as HTMLElement;
+    expect(quad).not.toBeNull();
+    expect(quad.style.opacity).toBe("1");
+  });
+
+  it("ticking the animation converges and hides the quad again", () => {
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    const scheduler = makeFakeScheduler();
+    const controller = createWarpCaretController(overlay, scheduler.schedule, scheduler.cancelSchedule);
+
+    controller.moveTo({ x: 10, top: 20, height: 16 });
+    controller.moveTo({ x: 40, top: 20, height: 16 });
+
+    for (let i = 0; i < 200 && scheduler.hasQueued(); i++) scheduler.tick(16);
+
+    expect(scheduler.hasQueued()).toBe(false);
+    const quad = overlay.querySelector(".warp-quad") as HTMLElement;
+    expect(quad.style.opacity).toBe("0");
+  });
+
+  it("a move to a different line snaps instantly even mid-animation, cancelling it", () => {
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    const scheduler = makeFakeScheduler();
+    const controller = createWarpCaretController(overlay, scheduler.schedule, scheduler.cancelSchedule);
+
+    controller.moveTo({ x: 10, top: 20, height: 16 });
+    controller.moveTo({ x: 40, top: 20, height: 16 });
+    expect(scheduler.hasQueued()).toBe(true);
+
+    controller.moveTo({ x: 5, top: 60, height: 16 }); // different line
+
+    expect(scheduler.hasQueued()).toBe(false);
+    const quad = overlay.querySelector(".warp-quad") as HTMLElement;
+    expect(quad.style.opacity).toBe("0");
+  });
+
+  it("stop() cancels any in-flight animation and removes the quad", () => {
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    const scheduler = makeFakeScheduler();
+    const controller = createWarpCaretController(overlay, scheduler.schedule, scheduler.cancelSchedule);
+
+    controller.moveTo({ x: 10, top: 20, height: 16 });
+    controller.moveTo({ x: 40, top: 20, height: 16 });
+    controller.stop();
+
+    expect(scheduler.hasQueued()).toBe(false);
+    expect(overlay.querySelectorAll(".warp-quad")).toHaveLength(0);
+  });
+});
+
 describe("setupTypingEffects (DOM wiring)", () => {
   afterEach(() => {
     document.body.innerHTML = "";
@@ -488,5 +743,104 @@ describe("setupTypingEffects (DOM wiring)", () => {
     contentEl.dispatchEvent(new InputEvent("beforeinput", { inputType: "deleteContentBackward" }));
 
     expect(document.querySelectorAll(".sublime-half")).toHaveLength(0);
+  });
+
+  it("a same-line selectionchange while editing starts the warp quad", () => {
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "true";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+
+    const setCaretAt = (offset: number): void => {
+      const range = document.createRange();
+      range.setStart(contentEl.firstChild!, offset);
+      range.collapse(true);
+      window.getSelection()!.removeAllRanges();
+      window.getSelection()!.addRange(range);
+    };
+
+    const stop = setupTypingEffects(contentEl);
+
+    setCaretAt(0);
+    stubRect({ left: 0, top: 20, width: 0, height: 16 });
+    document.dispatchEvent(new Event("selectionchange")); // first placement - snaps, no quad appended yet
+
+    setCaretAt(2);
+    stubRect({ left: 20, top: 20, width: 0, height: 16 });
+    document.dispatchEvent(new Event("selectionchange")); // same-line move - starts the animation
+
+    const quad = document.querySelector(".warp-quad") as HTMLElement | null;
+    expect(quad).not.toBeNull();
+    expect(quad!.style.opacity).toBe("1");
+
+    stop();
+  });
+
+  it("ignores selectionchange while not editable (Viewer mode)", () => {
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "false";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+    const range = document.createRange();
+    range.setStart(contentEl.firstChild!, 1);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 0, top: 20, width: 0, height: 16 });
+
+    const stop = setupTypingEffects(contentEl);
+    document.dispatchEvent(new Event("selectionchange"));
+
+    expect(document.querySelectorAll(".warp-quad")).toHaveLength(0);
+    stop();
+  });
+
+  it("ignores selectionchange for a selection outside this pane", () => {
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "true";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+
+    const elsewhere = document.createElement("div");
+    elsewhere.textContent = "outside";
+    document.body.appendChild(elsewhere);
+    const range = document.createRange();
+    range.setStart(elsewhere.firstChild!, 1);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 0, top: 20, width: 0, height: 16 });
+
+    const stop = setupTypingEffects(contentEl);
+    document.dispatchEvent(new Event("selectionchange"));
+
+    expect(document.querySelectorAll(".warp-quad")).toHaveLength(0);
+    stop();
+  });
+
+  it("stop() tears down the Warp controller (no dangling quad)", () => {
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "true";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+    const setCaretAt = (offset: number): void => {
+      const range = document.createRange();
+      range.setStart(contentEl.firstChild!, offset);
+      range.collapse(true);
+      window.getSelection()!.removeAllRanges();
+      window.getSelection()!.addRange(range);
+    };
+
+    const stop = setupTypingEffects(contentEl);
+    setCaretAt(0);
+    stubRect({ left: 0, top: 20, width: 0, height: 16 });
+    document.dispatchEvent(new Event("selectionchange"));
+    setCaretAt(2);
+    stubRect({ left: 20, top: 20, width: 0, height: 16 });
+    document.dispatchEvent(new Event("selectionchange"));
+
+    expect(document.querySelectorAll(".warp-quad")).toHaveLength(1);
+    stop();
+    expect(document.querySelectorAll(".warp-quad")).toHaveLength(0);
   });
 });
