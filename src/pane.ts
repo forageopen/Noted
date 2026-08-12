@@ -100,6 +100,11 @@ const PARAGRAPH_STYLES = [
 const THEME_TEXT_COLOR: Record<Theme, string> = {
   sakura: "#4a0e2e",
   cherry: "#ece7ea",
+  "forest-brew": "#acc54e",
+  "tea-mist": "#242f21",
+  blueberry: "#babcd3",
+  kokoblu: "#a7bdd7",
+  dubai: "#abc44f",
 };
 
 // Forced on any newly-highlighted text, regardless of theme - the pastel

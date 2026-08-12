@@ -22,6 +22,7 @@ async function loadFile(pane: Element, name: string, content: string): Promise<v
 async function bootMain(): Promise<{ dualButton: HTMLButtonElement; panesContainer: HTMLElement }> {
   document.body.innerHTML = `
     <button id="theme-toggle"></button>
+    <div id="theme-popover"></div>
     <button id="dual-toggle"></button>
     <button id="offline-toggle"></button>
     <h1 id="app-logo">Noted</h1>

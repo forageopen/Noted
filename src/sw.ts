@@ -44,18 +44,17 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v10 (the visitor counter switch changed index.html,
-// styles.css, and dist/main.js's content, but not this file's own bytes -
-// a service worker only re-installs when sw.js itself changes, so without
-// this bump a returning offline-mode visitor would keep the pre-switch
-// cache-first bundle forever, invisibly, even though the deploy had
-// already landed - see CHANGELOG.md's [Unreleased] Fixed entry for the
-// v8/v9 cases this same class of bug already caused) - a new CACHE_NAME
-// forces a fresh precache on activate (see the "activate" handler below,
-// which deletes any cache whose name isn't CACHE_NAME) so offline users
-// actually pick up the new bundle instead of keeping a stale cache-first
-// main.js forever.
-const CACHE_NAME = "noted-shell-v10";
+// Bumped to v11 (the new themes changed index.html, styles.css, and
+// dist/main.js's content, but not this file's own bytes - a service
+// worker only re-installs when sw.js itself changes, so without this bump
+// a returning offline-mode visitor would keep the pre-change cache-first
+// bundle forever, invisibly, even though the deploy had already landed -
+// see CHANGELOG.md's [Unreleased] Fixed entry for the v8/v9/v10 cases this
+// same class of bug already caused) - a new CACHE_NAME forces a fresh
+// precache on activate (see the "activate" handler below, which deletes
+// any cache whose name isn't CACHE_NAME) so offline users actually pick up
+// the new bundle instead of keeping a stale cache-first main.js forever.
+const CACHE_NAME = "noted-shell-v11";
 const SHELL_PATHS = [
   "",
   "index.html",

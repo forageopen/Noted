@@ -77,7 +77,7 @@ Dual-pane mode runs two independent instances of this pipeline side by side, eac
 - **Load a file**: drag-and-drop a `.md` file onto the page, or click to browse/select one from disk.
 - **Viewer** (default mode): renders the loaded Markdown as formatted HTML.
 - **Copy button**: copies the file's content to the clipboard.
-- **Theme toggle**: Sakura (light pink/burgundy) / Cherry (charcoal/neon pink) - a dark-mode third option was tried and retired; two themes covers it.
+- **Theme picker**: Sakura (light), Cherry (dark, the default for a first-time visitor), Forest Brew (dark), Tea Mist (light), Blueberry (dark), Kokoblu (dark, no glow), Dubai (dark, no glow) - a popover (src/theme.ts), not a click-to-cycle toggle, once the set grew past two. A dark-mode third option was tried and retired early on (superseded by this later expansion).
 - **Edit tab**: switches from Viewer to an editable view with formatting tools - an 18-color highlighter (with automatic text-contrast against dark highlight colors), bold/italic/underline/strikethrough, and a paragraph-style tool (H1/H2/H3/Body).
 - **Export**: the currently loaded/edited content, to `.html`, `.pdf`, `.docx`, `.md`, and `.json` (the last two added after the initial pass - `.md` is a lossless re-download of the original source; `.json` is a lossless dump of the shared document IR, see Section 2).
 - **Dual window**: two independent load/view/edit panes side by side, for comparing two Markdown files at once.

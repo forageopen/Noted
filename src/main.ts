@@ -14,21 +14,20 @@ import { setupFooterAutoHide } from "./footer";
 import { getJSON, setJSON } from "./storage";
 import { dualPaneIcon, singlePaneIcon } from "./icons";
 
-function readCurrentTheme(): Theme {
-  return document.documentElement.getAttribute("data-theme") === "cherry" ? "cherry" : "sakura";
-}
-
 const DUAL_KEY = "noted:dual-pane";
 
 function main(): void {
   const themeButton = document.getElementById("theme-toggle") as HTMLButtonElement | null;
+  const themePopover = document.getElementById("theme-popover");
   const dualButton = document.getElementById("dual-toggle") as HTMLButtonElement | null;
   const offlineButton = document.getElementById("offline-toggle") as HTMLButtonElement | null;
   const logo = document.getElementById("app-logo");
   const panesContainer = document.getElementById("panes");
 
-  if (!themeButton || !dualButton || !offlineButton || !logo || !panesContainer) {
-    throw new Error("main: expected #theme-toggle, #dual-toggle, #offline-toggle, #app-logo, and #panes in index.html");
+  if (!themeButton || !themePopover || !dualButton || !offlineButton || !logo || !panesContainer) {
+    throw new Error(
+      "main: expected #theme-toggle, #theme-popover, #dual-toggle, #offline-toggle, #app-logo, and #panes in index.html",
+    );
   }
 
   setupOfflineToggle(offlineButton);
@@ -39,11 +38,10 @@ function main(): void {
   const footer = document.querySelector<HTMLElement>(".app-footer");
   if (footer) setupFooterAutoHide(footer);
 
-  let currentTheme: Theme = setupThemeToggle(themeButton);
-  themeButton.addEventListener("click", () => {
-    // setupThemeToggle already flipped + persisted + applied; we just need
-    // the current value for exports (Pane reads it lazily via getTheme).
-    currentTheme = readCurrentTheme();
+  let currentTheme: Theme = setupThemeToggle(themeButton, themePopover, (theme) => {
+    // Pane reads this lazily via getTheme() (e.g. for exports) - kept in
+    // sync with whatever the popover's currently-applied pick is.
+    currentTheme = theme;
   });
 
   let panes: Pane[] = [];

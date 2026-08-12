@@ -35,6 +35,16 @@ const STANDALONE_PALETTES: Record<Theme, { bg: string; fg: string; muted: string
   sakura: { bg: "#fff0f5", fg: "#4a0e2e", muted: "#8a4a63", border: "#f3c6d6", codeBg: "#f8e1ea", linkColor: "#c2185b" },
   // Charcoal grey-black + neon pink, matching styles.css's html[data-theme="cherry"] block.
   cherry: { bg: "#141316", fg: "#ece7ea", muted: "#a99aa1", border: "#2c262a", codeBg: "#1c181c", linkColor: "#ff5ec2" },
+  // Deep forest green + olive-lime, matching styles.css's html[data-theme="forest-brew"] block.
+  "forest-brew": { bg: "#212e1e", fg: "#acc54e", muted: "#8fa968", border: "#3a4a34", codeBg: "#263424", linkColor: "#c3db6e" },
+  // Sage green + dark forest-green accent, matching styles.css's html[data-theme="tea-mist"] block.
+  "tea-mist": { bg: "#cad1ab", fg: "#242f21", muted: "#56604e", border: "#b9c293", codeBg: "#d2d8b7", linkColor: "#242f21" },
+  // Blue-slate background + deep-plum surfaces + periwinkle accent, matching styles.css's html[data-theme="blueberry"] block.
+  blueberry: { bg: "#4b4f76", fg: "#babcd3", muted: "#9799b5", border: "#5a5e82", codeBg: "#3e2038", linkColor: "#acbadb" },
+  // Dark brown + steel-blue accent, matching styles.css's html[data-theme="kokoblu"] block.
+  kokoblu: { bg: "#31221d", fg: "#a7bdd7", muted: "#8c97a3", border: "#4a3a34", codeBg: "#362621", linkColor: "#c3d3e6" },
+  // Near-black brown + olive-lime accent, matching styles.css's html[data-theme="dubai"] block.
+  dubai: { bg: "#2a1613", fg: "#abc44f", muted: "#8fa168", border: "#43302a", codeBg: "#301f1a", linkColor: "#c3d876" },
 };
 
 function standaloneCss(theme: Theme): string {

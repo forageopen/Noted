@@ -1,10 +1,44 @@
 /* Noted - app chrome + rendered Markdown content styling.
-   Theme is applied as data-theme="sakura"|"cherry" on <html> (see
-   src/theme.ts). Sakura: light pink surfaces, burgundy as the darkest/text
-   color. Cherry: charcoal grey-black surfaces, neon pink accent, glowing
-   button hover. (Previously a three-way light/dark/sakura cycle - dark
-   mode was retired, "light" was recolored and renamed to "Sakura", and the
-   old "sakura" was renamed to "Cherry".)
+   Theme is applied as data-theme="sakura"|"cherry"|"forest-brew"|"tea-mist"|
+   "blueberry"|"kokoblu"|"dubai" on <html> (see src/theme.ts, a popover
+   picker - seven themes don't fit a two-state cycle button). Cherry is the
+   default for a first-time visitor (no stored preference) - see
+   src/theme.ts's resolveInitialTheme.
+   Two original themes:
+   - Sakura (light): pink surfaces, burgundy as the darkest/text color.
+   - Cherry (dark): charcoal grey-black surfaces, neon pink accent, glowing
+     button hover.
+   Five later additions, palettes supplied directly by the owner (only a
+   handful of anchor colors given per theme - every other token below was
+   derived from those following the same tint/shade relationships already
+   established by Sakura/Cherry, e.g. -sunken/-surface/-overlay each a step
+   lighter, -subtle text a blend between text and background, danger/
+   warning/success picked to stay a distinct hue from the theme's own
+   accent):
+   - Forest Brew (dark): deep forest green surfaces, olive-lime accent/text.
+   - Tea Mist (light): sage-green surfaces, dark forest-green accent/text.
+   - Blueberry (dark): a blue-slate page background paired with a
+     deliberately distinct deep-plum component surface (the owner's
+     "Deep Surface" value - not a lightness step of the page background,
+     a different hue entirely), periwinkle-blue accent. Note: the owner's
+     exact text (#BABCD3) / background (#4B4F76) pair computes to ~4.2:1
+     contrast - passes WCAG AA for large/bold text (3:1) but falls just
+     short of the 4.5:1 body-text threshold. Shipped as given rather than
+     silently altered; flagged here for visibility.
+   - Kokoblu (dark, no glow): dark brown surfaces, steel-blue accent/text.
+   - Dubai (dark, no glow): near-black brown surfaces, olive-lime
+     accent/text.
+   Kokoblu/Dubai deliberately never define --ds-glow (see below) and use a
+   plain neutral elevation shadow rather than the brand-tinted one the
+   other dark themes use, per the owner's explicit "no glow effect".
+   The glow-on-hover treatment (`--ds-glow`, `.btn:hover` etc. further down)
+   was Cherry-only; it's now theme-agnostic (falls back to `none` via
+   `var(--ds-glow, none)`) so it naturally applies to every theme that
+   defines `--ds-glow` (Cherry, Forest Brew, Tea Mist, Blueberry) and skips
+   the ones that don't (Sakura, Kokoblu, Dubai).
+   (Previously a three-way light/dark/sakura cycle - dark mode was retired,
+   "light" was recolored and renamed to "Sakura", and the old "sakura" was
+   renamed to "Cherry".)
 
    Restyled to the Atlassian Design System's visual language: its neutral/
    brand color scale (Blue 500/400, Neutral N-series light / DN-series
@@ -120,6 +154,162 @@ html[data-theme="cherry"] {
   --ds-glow: 0 0 0 1px rgba(255, 46, 166, 0.45), 0 0 14px rgba(255, 46, 166, 0.55);
 }
 
+/* Forest Brew - deep forest green surfaces, olive-lime accent (given as
+   both "Text" and "Button" by the owner - deliberately the same color, not
+   a derivation mistake). Dark theme: subtle tints (-brand-subtle etc.) skew
+   dark, same convention Cherry established. */
+html[data-theme="forest-brew"] {
+  --ds-surface: #283624;
+  --ds-surface-sunken: #212e1e;
+  --ds-surface-overlay: #324230;
+
+  --ds-text: #acc54e;
+  --ds-text-subtle: #8fa968;
+  --ds-text-inverse: #1a2416;
+
+  --ds-border: #3a4a34;
+  --ds-border-bold: #56684c;
+
+  --ds-brand-bold: #acc54e;
+  --ds-brand-bold-hover: #c3db6e;
+  --ds-brand-subtle: #3c4a24;
+  --ds-danger: #ff8a65;
+  --ds-danger-subtle: #3d2018;
+  --ds-warning: #e8c547;
+  --ds-success: #5fbe8d;
+
+  --ds-code-bg: #263424;
+  --ds-drop-bg: #2c3a28;
+
+  --ds-shadow-raised: 0 1px 1px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(172, 197, 78, 0.16);
+  --ds-glow: 0 0 0 1px rgba(172, 197, 78, 0.35), 0 0 14px rgba(172, 197, 78, 0.35);
+}
+
+/* Tea Mist - sage-green surfaces, dark forest-green accent (again given as
+   both "Text" and "Button" by the owner). Light theme: subtle tints skew
+   light and the elevation shadow stays the neutral Atlassian navy, same
+   convention Sakura established, rather than Forest Brew/Blueberry's
+   brand-tinted dark-theme shadow. */
+html[data-theme="tea-mist"] {
+  --ds-surface: #d6dcbc;
+  --ds-surface-sunken: #cad1ab;
+  --ds-surface-overlay: #e3e7ce;
+
+  --ds-text: #242f21;
+  --ds-text-subtle: #56604e;
+  --ds-text-inverse: #cad1ab;
+
+  --ds-border: #b9c293;
+  --ds-border-bold: #9ca876;
+
+  --ds-brand-bold: #242f21;
+  --ds-brand-bold-hover: #3d4b37;
+  --ds-brand-subtle: #dce2c4;
+  --ds-danger: #c1502e;
+  --ds-danger-subtle: #f3ddd3;
+  --ds-warning: #b8860b;
+  --ds-success: #3f7d4a;
+
+  --ds-code-bg: #d2d8b7;
+  --ds-drop-bg: #d8debd;
+
+  --ds-shadow-raised: 0 1px 1px rgba(9, 30, 66, 0.25), 0 0 1px 1px rgba(9, 30, 66, 0.13);
+  --ds-glow: 0 0 0 1px rgba(36, 47, 33, 0.25), 0 0 14px rgba(36, 47, 33, 0.25);
+}
+
+/* Blueberry - blue-slate page background (the owner's "Background") paired
+   with a deliberately distinct deep-plum component surface (the owner's
+   "Deep Surface" - a different hue, not a lightness step of the page
+   background - see the file-header note on this theme's contrast too).
+   Primary Accent is --ds-brand-bold; Secondary Accent (a lighter tint of
+   it) maps to --ds-brand-bold-hover, same "hover is the lighter tint of
+   the base accent" relationship every other theme already uses. */
+html[data-theme="blueberry"] {
+  --ds-surface: #411b32;
+  --ds-surface-sunken: #4b4f76;
+  --ds-surface-overlay: #5a2f49;
+
+  --ds-text: #babcd3;
+  --ds-text-subtle: #9799b5;
+  --ds-text-inverse: #411b32;
+
+  --ds-border: #5a5e82;
+  --ds-border-bold: #757aa3;
+
+  --ds-brand-bold: #647ebd;
+  --ds-brand-bold-hover: #acbadb;
+  --ds-brand-subtle: #2e3350;
+  --ds-danger: #e0708a;
+  --ds-danger-subtle: #3d1f2a;
+  --ds-warning: #d9a441;
+  --ds-success: #5fbe9a;
+
+  --ds-code-bg: #3e2038;
+  --ds-drop-bg: #453055;
+
+  --ds-shadow-raised: 0 1px 1px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(100, 126, 189, 0.16);
+  --ds-glow: 0 0 0 1px rgba(100, 126, 189, 0.4), 0 0 14px rgba(100, 126, 189, 0.4);
+}
+
+/* Kokoblu - dark brown surfaces, steel-blue accent/text. Explicitly no
+   glow: --ds-glow is never defined here, so `var(--ds-glow, none)`
+   (the theme-agnostic hover rule further down) falls back to `none`, same
+   as Sakura. The elevation shadow also stays a plain neutral black rather
+   than the brand-tinted ambient shadow the glow-having dark themes use. */
+html[data-theme="kokoblu"] {
+  --ds-surface: #3a2924;
+  --ds-surface-sunken: #31221d;
+  --ds-surface-overlay: #453330;
+
+  --ds-text: #a7bdd7;
+  --ds-text-subtle: #8c97a3;
+  --ds-text-inverse: #241812;
+
+  --ds-border: #4a3a34;
+  --ds-border-bold: #665048;
+
+  --ds-brand-bold: #a7bdd7;
+  --ds-brand-bold-hover: #c3d3e6;
+  --ds-brand-subtle: #2e3a45;
+  --ds-danger: #e08566;
+  --ds-danger-subtle: #3d241c;
+  --ds-warning: #d9b054;
+  --ds-success: #6fbe8a;
+
+  --ds-code-bg: #362621;
+  --ds-drop-bg: #3c2b26;
+
+  --ds-shadow-raised: 0 1px 1px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+/* Dubai - near-black brown surfaces, olive-lime accent/text. Explicitly no
+   glow, same reasoning as Kokoblu above. */
+html[data-theme="dubai"] {
+  --ds-surface: #33201c;
+  --ds-surface-sunken: #2a1613;
+  --ds-surface-overlay: #402a24;
+
+  --ds-text: #abc44f;
+  --ds-text-subtle: #8fa168;
+  --ds-text-inverse: #1f110e;
+
+  --ds-border: #43302a;
+  --ds-border-bold: #5e463d;
+
+  --ds-brand-bold: #abc44f;
+  --ds-brand-bold-hover: #c3d876;
+  --ds-brand-subtle: #3a431f;
+  --ds-danger: #e2705a;
+  --ds-danger-subtle: #3a2018;
+  --ds-warning: #d9a544;
+  --ds-success: #5fbe8d;
+
+  --ds-code-bg: #301f1a;
+  --ds-drop-bg: #362520;
+
+  --ds-shadow-raised: 0 1px 1px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -218,9 +408,17 @@ body {
   margin: 0;
 }
 
-/* Cherry-only: neon pink instead of the theme's own (light, washed-out
-   looking) text color. */
-html[data-theme="cherry"] .app-title {
+/* Every theme but Sakura: the theme's own accent color instead of its
+   plain text color for the logo (Sakura keeps its own burgundy text color
+   here). For Forest Brew/Tea Mist this is a no-op in practice - their
+   accent and text colors are the same given value - but it's applied
+   uniformly rather than special-cased per theme. */
+html[data-theme="cherry"] .app-title,
+html[data-theme="forest-brew"] .app-title,
+html[data-theme="tea-mist"] .app-title,
+html[data-theme="blueberry"] .app-title,
+html[data-theme="kokoblu"] .app-title,
+html[data-theme="dubai"] .app-title {
   color: var(--ds-brand-bold);
 }
 
@@ -249,11 +447,16 @@ html[data-theme="cherry"] .app-title {
   background: var(--ds-border-bold);
 }
 
-/* Cherry-only: a subtle glowing pink hover on every button-like control. */
-html[data-theme="cherry"] .btn:hover:not(:disabled),
-html[data-theme="cherry"] .tab-btn:hover,
-html[data-theme="cherry"] .fmt-btn:hover {
-  box-shadow: var(--ds-glow);
+/* Theme-agnostic glow-on-hover: applies whenever the active theme defines
+   --ds-glow (Cherry, Forest Brew, Tea Mist, Blueberry), and is a no-op
+   (falls back to `none`) for the ones that don't (Sakura, Kokoblu, Dubai).
+   Originally Cherry-only via an explicit selector list; generalized so
+   adding a themed variant is just "define --ds-glow or don't" rather than
+   also updating this rule every time. */
+.btn:hover:not(:disabled),
+.tab-btn:hover,
+.fmt-btn:hover {
+  box-shadow: var(--ds-glow, none);
 }
 
 .btn:disabled {
@@ -261,8 +464,9 @@ html[data-theme="cherry"] .fmt-btn:hover {
   cursor: not-allowed;
 }
 
-/* Icon-only header buttons (theme cycle, dual-window, offline) - square,
-   centered icon, no text. title/aria-label carry the accessible name. */
+/* Icon-only header buttons (theme picker toggle, dual-window, offline) -
+   square, centered icon, no text. title/aria-label carry the accessible
+   name. */
 .btn-icon {
   display: inline-flex;
   align-items: center;
@@ -270,6 +474,72 @@ html[data-theme="cherry"] .fmt-btn:hover {
   width: 2.25rem;
   height: 2.25rem;
   padding: 0;
+}
+
+/* Theme picker - same popover shape as .paragraph-style-group/-popover
+   (vertical list, one row per option), right-aligned instead of left since
+   it hangs off the header's right-most icon button rather than a
+   left-anchored toolbar button. */
+.theme-picker {
+  position: relative; /* anchors .theme-popover below */
+  display: inline-flex;
+}
+
+#theme-toggle[aria-expanded="true"] {
+  background: var(--ds-border);
+}
+
+.theme-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  min-width: 9rem;
+  background: var(--ds-surface-overlay);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  box-shadow: var(--ds-shadow-raised);
+}
+/* Same fix as .paragraph-style-popover[hidden] etc above: an explicit
+   `display` on this class ties in specificity with the browser's plain
+   `[hidden] { display: none }` rule. */
+.theme-popover[hidden] {
+  display: none;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-text);
+  cursor: pointer;
+}
+
+.theme-option:hover {
+  background: var(--ds-surface-sunken);
+}
+
+.theme-option svg {
+  flex-shrink: 0; /* keep the icon from being squeezed if a label ever wraps */
+}
+
+/* The currently-active theme's row - a persistent highlight, not just a
+   hover state, so re-opening the popover shows at a glance which theme is
+   already selected. */
+.theme-option[aria-checked="true"] {
+  background: var(--ds-brand-subtle);
+  color: var(--ds-brand-bold);
+  font-weight: 500;
 }
 
 .panes {

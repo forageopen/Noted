@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildStandaloneHtml, withExtension } from "./html";
+import type { Theme } from "../theme";
 
 describe("buildStandaloneHtml (pure)", () => {
   it("embeds the title, theme, and body html", () => {
@@ -27,6 +28,14 @@ describe("buildStandaloneHtml (pure)", () => {
     expect(html).toContain('data-theme="sakura"');
     expect(html).toContain("#fff0f5"); // sakura bg
     expect(html).toContain("#4a0e2e"); // sakura text
+  });
+
+  it("has a palette for every theme - doesn't fall through to a default for any of them", () => {
+    const themes: Theme[] = ["sakura", "cherry", "forest-brew", "tea-mist", "blueberry", "kokoblu", "dubai"];
+    for (const theme of themes) {
+      const html = buildStandaloneHtml("Doc", "<p>x</p>", theme);
+      expect(html).toContain(`data-theme="${theme}"`);
+    }
   });
 });
 

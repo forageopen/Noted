@@ -12,7 +12,10 @@
   <header class="app-header">
     <h1 class="app-title" id="app-logo">Noted</h1>
     <div class="header-actions">
-      <button type="button" id="theme-toggle" class="btn btn-icon"></button>
+      <span class="theme-picker">
+        <button type="button" id="theme-toggle" class="btn btn-icon" aria-haspopup="true" aria-expanded="false"></button>
+        <div class="theme-popover" id="theme-popover" role="menu" hidden></div>
+      </span>
       <button type="button" id="dual-toggle" class="btn btn-icon"></button>
       <button type="button" id="offline-toggle" class="btn btn-icon"></button>
     </div>
