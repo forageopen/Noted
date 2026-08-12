@@ -4,6 +4,10 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 ## [Unreleased]
 
+Nothing pending beyond v1.2.0.
+
+## [1.2.0] - 2026-08-12
+
 ### Added
 
 - "Echo" typing effect: each keystroke in Edit mode spawns a warm accent-colored duplicate of the glyph that expands and fades over ~180ms. First of a three-mode composite typing experience (Echo on insert, Sublime decay on delete, Warp on caret movement). Respects `prefers-reduced-motion`.
