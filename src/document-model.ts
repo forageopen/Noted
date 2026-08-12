@@ -130,7 +130,7 @@ function appendTokenBlocks(token: Token, blocks: Block[]): void {
         kind: "table",
         header: table.header.map((cell) => ({ runs: inlineTokensToRuns(cell.tokens ?? []) })),
         rows: table.rows.map((row) => row.map((cell) => ({ runs: inlineTokensToRuns(cell.tokens ?? []) }))),
-        align: table.align.map((a) => (a ?? null) as Alignment),
+        align: table.align.map((a) => a ?? null),
       });
       break;
     }

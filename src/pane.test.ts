@@ -37,11 +37,11 @@ async function loadFile(pane: Pane, name: string, content: string): Promise<void
 beforeEach(() => {
   // jsdom doesn't implement execCommand; the formatting toolbar calls it,
   // so stub it to a no-op for these DOM-wiring tests.
-  document.execCommand = vi.fn().mockReturnValue(true) as unknown as typeof document.execCommand;
+  document.execCommand = vi.fn().mockReturnValue(true);
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
   // jsdom doesn't implement the Blob URL APIs either; the export popover's
   // .html/.docx/.json paths all end up calling these via downloadBlob.
-  URL.createObjectURL = vi.fn().mockReturnValue("blob:mock") as unknown as typeof URL.createObjectURL;
+  URL.createObjectURL = vi.fn().mockReturnValue("blob:mock");
   URL.revokeObjectURL = vi.fn();
 });
 
@@ -94,7 +94,7 @@ describe("Pane content sync between Viewer and Edit tabs", () => {
 });
 
 describe("Browse button hover-to-clear (once a file is loaded)", () => {
-  it("does not change text on hover before any file is loaded", async () => {
+  it("does not change text on hover before any file is loaded", () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
     const browseButton = pane.root.querySelector<HTMLButtonElement>(".browse-btn")!;

@@ -44,7 +44,7 @@ function main(): void {
     currentTheme = theme;
   });
 
-  let panes: Pane[] = [];
+  const panes: Pane[] = [];
 
   // Toggling dual mode must never touch a pane that already has content -
   // it previously destroyed and recreated ALL panes on every toggle,

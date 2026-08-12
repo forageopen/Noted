@@ -9,7 +9,7 @@ describe("setupVisitorTracking (DOM wiring)", () => {
     const doc = document.implementation.createHTMLDocument();
     setupVisitorTracking(PROD, doc);
 
-    const script = doc.head.querySelector('script[src="//gc.zgo.at/count.js"]') as HTMLScriptElement | null;
+    const script = doc.head.querySelector<HTMLScriptElement>('script[src="//gc.zgo.at/count.js"]');
     expect(script).not.toBeNull();
     expect(script!.async).toBe(true);
     expect(script!.dataset.goatcounter).toBe("https://forage.goatcounter.com/count");

@@ -58,7 +58,12 @@ export function readFileAsText(file: File): Promise<string> {
   }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
+    // FileReader.result's declared type (string | ArrayBuffer | null) covers
+    // every read method, not just this one - readAsText() below guarantees
+    // it's actually string | null here, so this asserts the real invariant
+    // rather than coercing a value that could in principle be an ArrayBuffer
+    // (String(anArrayBuffer) would silently produce "[object ArrayBuffer]").
+    reader.onload = () => resolve((reader.result as string | null) ?? "");
     reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
     reader.readAsText(file);
   });

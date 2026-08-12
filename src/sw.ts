@@ -44,17 +44,18 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v13 (the XSS/sanitization fix changed dist/main.js's content -
-// a security fix is especially not something a returning offline-mode
-// visitor should be able to stay stuck without, on top of the general
-// reason every prior bump here exists: a service worker only re-installs
-// when sw.js itself changes, not when dist/main.js does - see CHANGELOG.md's
-// Fixed entries for the v8-v12 cases this same class of bug already
+// Bumped to v14 (the ESLint cleanup pass touched file-loader.ts,
+// typing-effects.ts, and main.ts, changing dist/main.js's exact bytes even
+// though behavior is unchanged - the service worker's cache-first fetch
+// handler cares about bytes, not intent, so this still needs the same bump
+// every prior content change here has needed: it only re-installs when
+// sw.js itself changes, not when dist/main.js does - see CHANGELOG.md's
+// Fixed entries for the v8-v13 cases this same class of bug already
 // caused) - a new CACHE_NAME forces a fresh precache on activate (see the
 // "activate" handler below, which deletes any cache whose name isn't
 // CACHE_NAME) so offline users actually pick up the new bundle instead of
 // keeping a stale cache-first main.js forever.
-const CACHE_NAME = "noted-shell-v13";
+const CACHE_NAME = "noted-shell-v14";
 const SHELL_PATHS = [
   "",
   "index.html",

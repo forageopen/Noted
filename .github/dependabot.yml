@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # npm dependencies (marked, mammoth, docx, dompurify, and the dev
+  # toolchain - esbuild/vitest/etc.). Weekly rather than daily: this repo
+  # doesn't move fast enough to need same-day PRs, and weekly keeps the
+  # noise down without letting real advisories sit unnoticed for long.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions - pairs with pinning actions to a commit SHA
+  # (.github/workflows/*.yml): Dependabot resolves a new release back to
+  # its SHA and updates the pin (keeping the trailing "# vX" comment in
+  # sync), so pinning doesn't mean silently freezing forever.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

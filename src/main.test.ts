@@ -38,7 +38,7 @@ async function bootMain(): Promise<{ dualButton: HTMLButtonElement; panesContain
 
 beforeEach(() => {
   localStorage.clear();
-  document.execCommand = vi.fn().mockReturnValue(true) as unknown as typeof document.execCommand;
+  document.execCommand = vi.fn().mockReturnValue(true);
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
 });
 

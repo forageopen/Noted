@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
-import { renderMarkdown, lexMarkdown, stripFrontmatter } from "./markdown";
+import { renderMarkdown, lexMarkdown, stripFrontmatter, type Tokens } from "./markdown";
 
 describe("renderMarkdown", () => {
   it("renders a heading", () => {
@@ -45,11 +45,11 @@ describe("lexMarkdown", () => {
 
   it("produces a list token with items", () => {
     const tokens = lexMarkdown("- one\n- two\n");
-    const list = tokens.find((t) => t.type === "list");
-    expect(list).toBeDefined();
-    if (list && list.type === "list") {
-      expect(list.items.length).toBe(2);
-    }
+    // A type-predicate find() narrows `list` for real (marked's Token union
+    // doesn't narrow reliably through a plain `t.type === "list"` check in
+    // an `if`), so `.items` below is a real Tokens.ListItem[], not `any`.
+    const list = tokens.find((t): t is Tokens.List => t.type === "list");
+    expect(list?.items.length).toBe(2);
   });
 });
 

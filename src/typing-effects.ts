@@ -37,11 +37,13 @@ const ECHO_DURATION_MS = 180;
 const ECHO_CLEANUP_MS = ECHO_DURATION_MS + 60;
 
 /** The bottom half's fade starts this many ms after the top half's, and
- * runs longer - see SUBLIME_TOP_DURATION_MS / SUBLIME_BOTTOM_DURATION_MS -
- * so the top visibly disappears well before the bottom does, rather than
- * both halves vanishing together. */
+ * runs longer than the top half's own fixed 500ms (styles.css's
+ * `.sublime-half-top .sublime-half-inner` animation-duration) - so the top
+ * visibly disappears well before the bottom does, rather than both halves
+ * vanishing together. Only the bottom's own numbers are needed here: it's
+ * always the longer-running half, so it alone determines SUBLIME_CLEANUP_MS
+ * below. */
 const SUBLIME_BOTTOM_DELAY_MS = 320;
-const SUBLIME_TOP_DURATION_MS = 500;
 const SUBLIME_BOTTOM_DURATION_MS = 650;
 const SUBLIME_MOTE_DURATION_MS = 900;
 const SUBLIME_MOTE_COUNT = 4;

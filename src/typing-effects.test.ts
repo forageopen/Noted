@@ -44,7 +44,7 @@ function stubRect(rect: { left: number; top: number; width: number; height: numb
       toJSON() {
         return this;
       },
-    }) as DOMRect;
+    });
 }
 
 function restoreRect(): void {
@@ -919,9 +919,9 @@ describe("setupTypingEffects (DOM wiring)", () => {
     stubRect({ left: 20, top: 20, width: 0, height: 16 });
     document.dispatchEvent(new Event("selectionchange")); // same-line move - starts the animation
 
-    const quad = document.querySelector(".warp-quad") as HTMLElement | null;
+    const quad = document.querySelector(".warp-quad") as HTMLElement;
     expect(quad).not.toBeNull();
-    expect(quad!.style.opacity).toBe("1");
+    expect(quad.style.opacity).toBe("1");
 
     stop();
   });

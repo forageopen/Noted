@@ -8,6 +8,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json",
+    "lint": "eslint .",
     "build": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outdir=dist --external:buffer && esbuild src/sw.ts --bundle --format=esm --target=es2022 --outfile=sw.js --external:buffer"
   },
   "dependencies": {
@@ -18,9 +19,11 @@
   },
   "devDependencies": {
     "esbuild": "^0.23.0",
+    "eslint": "^10.8.1",
     "jsdom": "^24.1.0",
     "jszip": "^3.10.1",
     "typescript": "^5.5.0",
+    "typescript-eslint": "^8.67.0",
     "vitest": "^2.0.0"
   },
   "engines": {

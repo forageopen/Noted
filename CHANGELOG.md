@@ -8,10 +8,20 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 - Sublime now animates deleting a whole selection, not just a single character: deleting a selected range dissolves it word-by-word in reverse reading order (last word fades first, first word fades last) - the same fade/blur/lift look as the single-character case, reused at word granularity, instead of nothing happening for anything past one character.
 
+### Added
+
+- ESLint (`typescript-eslint` `recommendedTypeChecked`) wired into CI, catching classes of bug `tsc` alone doesn't (floating promises, unsafe `any` propagation, unnecessary type assertions). Fixed the 21 real findings it surfaced across the existing codebase rather than suppressing them.
+- `SECURITY.md` and `.github/dependabot.yml` (npm + github-actions, weekly).
+
+### Changed
+
+- `ci.yml`/`deploy-pages.yml` hardened: explicit least-privilege `permissions:` (previously `ci.yml` had none at all; `deploy-pages.yml`'s Pages-deploy permissions are now scoped to only the job that needs them), and every GitHub Action pinned to a commit SHA instead of a floating version tag.
+
 ### Fixed
 
 - **Security:** Markdown/`.docx`-derived HTML was rendered straight to `innerHTML` with no sanitization - a `.md` file containing e.g. `<img src=x onerror="...">` executed arbitrary script the instant it was opened, via the app's own primary drag-and-drop load path. Added `dompurify` (`src/sanitize.ts`) as a mandatory step between parsing and rendering, for both the Markdown render path and the `.docx` upload path. Verified against a real exploit attempt in a real browser, not just unit tests. See `PRODUCT-DECISIONS.md` ADR-008.
-- `CACHE_NAME` bumped to `v12` (paragraph dissolve) and `v13` (XSS fix).
+- See `PRODUCT-DECISIONS.md` ADR-009 for the full repo/CI/dependency hardening pass this batch of changes is part of.
+- `CACHE_NAME` bumped to `v12` (paragraph dissolve), `v13` (XSS fix), and `v14` (the ESLint cleanup pass's code changes).
 
 ## [1.2.0] - 2026-08-12
 
