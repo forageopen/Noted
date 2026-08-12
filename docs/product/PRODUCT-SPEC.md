@@ -77,7 +77,7 @@ Dual-pane mode runs two independent instances of this pipeline side by side, eac
 - **Load a file**: drag-and-drop a `.md` file onto the page, or click to browse/select one from disk.
 - **Viewer** (default mode): renders the loaded Markdown as formatted HTML.
 - **Copy button**: copies the file's content to the clipboard.
-- **Theme picker**: Sakura (light), Cherry (dark, the default for a first-time visitor), Forest Brew (dark), Tea Mist (light), Blueberry (dark), Kokoblu (dark, no glow), Dubai (dark, no glow) - a popover (src/theme.ts), not a click-to-cycle toggle, once the set grew past two. A dark-mode third option was tried and retired early on (superseded by this later expansion).
+- **Theme toggle**: Sakura (light pink/burgundy) / Cherry (charcoal/neon pink), a click-to-cycle button. A dark-mode third option was tried and retired early on; two themes covered it at this stage. *(Superseded in v1.2.0 - see below - once the theme set grew past two, a two-state cycle stopped being the right interaction shape.)*
 - **Edit tab**: switches from Viewer to an editable view with formatting tools - an 18-color highlighter (with automatic text-contrast against dark highlight colors), bold/italic/underline/strikethrough, and a paragraph-style tool (H1/H2/H3/Body).
 - **Export**: the currently loaded/edited content, to `.html`, `.pdf`, `.docx`, `.md`, and `.json` (the last two added after the initial pass - `.md` is a lossless re-download of the original source; `.json` is a lossless dump of the shared document IR, see Section 2).
 - **Dual window**: two independent load/view/edit panes side by side, for comparing two Markdown files at once.
@@ -86,8 +86,20 @@ Dual-pane mode runs two independent instances of this pipeline side by side, eac
 ### v1.1.0 additions (see `PRODUCT-DECISIONS.md` Section 11, ADR-003/ADR-004)
 
 - **`.docx` upload**: opening a Word document works the same as opening a `.md` file - converted internally to Markdown text via the shared document IR, so every downstream feature (viewer, editor, every export format) treats it identically to a native Markdown file.
-- **Visitor counter**: a "Visitor stats" footer link to a public GoatCounter dashboard, deduped by hashed IP+device+day server-side (not a raw page-load counter) - the one deliberate, disclosed exception to the "no network calls after load" criterion in Section 4, recorded as ADR-004/ADR-006.
+- **Visitor counter**: a real (non-simulated) "this week" / "total visitors" count in the footer, backed by a free third-party badge service (`visitor-badge.laobi.icu`) - the one deliberate, disclosed exception to the "no network calls after load" criterion in Section 4, recorded as ADR-004. *(Superseded in v1.2.0 - see below - this service counted every page load with no dedup at all, so a plain refresh inflated the number.)*
 - **Auto-hide footer**: hidden by default (taskbar-style), reveals on hover, click-to-lock.
+
+### v1.2.0 additions (see `PRODUCT-DECISIONS.md` Section 11, ADR-006/ADR-007)
+
+- **Typing effects**: three purely decorative, `prefers-reduced-motion`-respecting modes layered onto ordinary editing, none of them altering the actual edit - "Echo" spawns a warm accent-colored duplicate of a just-typed glyph that expands and fades (~180ms); "Sublime" decays a just-deleted character top-down over ~1s, with four small dust motes; "Warp" is a persistent quad that tracks the caret between same-line positions, its two edges easing toward the new position on different time constants so it visibly stretches then re-forms.
+- **Theme picker expanded to 7**: Sakura, Cherry, Forest Brew, Tea Mist, Blueberry, Kokoblu (no glow), Dubai (no glow) - replacing the v1.0.0 click-to-cycle toggle with a popover (`src/theme.ts`), since a blind cycle stopped being the right interaction once the set grew past two. Cherry became the default for a first-time visitor, replacing the prior OS-preference-based Sakura/Cherry split.
+- **Visitor counter switched to GoatCounter**: real dedup by hashed IP+device+day server-side, fixing the v1.1.0 badge counter's "every refresh counts" problem. Footer now links to a public GoatCounter dashboard rather than showing inline badge images - an inline live number would have required embedding an API credential unsafely in client-side code, see ADR-006.
+
+### v1.3.0 additions
+
+- **Paragraph-selection delete**: deleting a selected range (not just a single character) now dissolves it word-by-word in reverse reading order (last word fades first, first word fades last) - the same "Sublime" look extended to word granularity, instead of nothing happening for anything past one character.
+- **HTML sanitization** (security fix): see Section 6 below, ADR-008.
+- Repository/CI/dependency hardening (least-privilege CI permissions, SHA-pinned GitHub Actions, ESLint, Dependabot, `SECURITY.md`) - not user-facing, recorded as ADR-009.
 
 ### Explicitly out of scope for v1
 
