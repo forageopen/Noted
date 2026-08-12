@@ -5,6 +5,12 @@ import {
   caretCharacterRect,
   createEchoGlyphEl,
   spawnEchoGlyph,
+  deleteDirectionFromInputEvent,
+  caretDeletionTarget,
+  createSublimeHalfEl,
+  randomMoteSpec,
+  createMoteEl,
+  spawnSublimeDecay,
   setupTypingEffects,
 } from "./typing-effects";
 
@@ -141,6 +147,203 @@ describe("spawnEchoGlyph (DOM)", () => {
   });
 });
 
+describe("deleteDirectionFromInputEvent (pure)", () => {
+  it("recognizes backspace and the Delete key", () => {
+    expect(deleteDirectionFromInputEvent("deleteContentBackward")).toBe("backward");
+    expect(deleteDirectionFromInputEvent("deleteContentForward")).toBe("forward");
+  });
+
+  it("ignores word/line deletes and cut", () => {
+    expect(deleteDirectionFromInputEvent("deleteWordBackward")).toBeNull();
+    expect(deleteDirectionFromInputEvent("deleteSoftLineBackward")).toBeNull();
+    expect(deleteDirectionFromInputEvent("deleteByCut")).toBeNull();
+  });
+
+  it("ignores non-delete edits", () => {
+    expect(deleteDirectionFromInputEvent("insertText")).toBeNull();
+  });
+});
+
+describe("caretDeletionTarget (DOM)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    window.getSelection()?.removeAllRanges();
+    restoreRect();
+  });
+
+  it("returns null when there is no selection", () => {
+    expect(caretDeletionTarget("backward")).toBeNull();
+  });
+
+  it("returns null for a non-collapsed selection", () => {
+    const div = document.createElement("div");
+    div.textContent = "ab";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 0);
+    range.setEnd(div.firstChild!, 2);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+
+    expect(caretDeletionTarget("backward")).toBeNull();
+  });
+
+  it("backward: returns the character before the caret (Backspace target)", () => {
+    const div = document.createElement("div");
+    div.textContent = "ab";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 2);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 10, top: 20, width: 8, height: 16 });
+
+    expect(caretDeletionTarget("backward")).toEqual({
+      rect: { left: 10, top: 20, width: 8, height: 16 },
+      char: "b",
+    });
+  });
+
+  it("backward: returns null when the caret is at the very start (nothing before it)", () => {
+    const div = document.createElement("div");
+    div.textContent = "ab";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 0);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+
+    expect(caretDeletionTarget("backward")).toBeNull();
+  });
+
+  it("forward: returns the character after the caret (Delete key target)", () => {
+    const div = document.createElement("div");
+    div.textContent = "ab";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 0);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 0, top: 20, width: 8, height: 16 });
+
+    expect(caretDeletionTarget("forward")).toEqual({
+      rect: { left: 0, top: 20, width: 8, height: 16 },
+      char: "a",
+    });
+  });
+
+  it("forward: returns null when the caret is at the very end (nothing after it)", () => {
+    const div = document.createElement("div");
+    div.textContent = "ab";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 2);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+
+    expect(caretDeletionTarget("forward")).toBeNull();
+  });
+});
+
+describe("createSublimeHalfEl (DOM)", () => {
+  const rect = { left: 10, top: 20, width: 8, height: 16 };
+
+  it("positions the top half at the glyph's own top, clipped to half height", () => {
+    const el = createSublimeHalfEl("top", "g", rect, "16px Consolas", "rgb(1, 2, 3)");
+    expect(el.className).toBe("sublime-half sublime-half-top");
+    expect(el.style.top).toBe("20px");
+    expect(el.style.height).toBe("8px");
+    const inner = el.querySelector(".sublime-half-inner") as HTMLElement;
+    expect(inner.textContent).toBe("g");
+    expect(inner.style.height).toBe("16px"); // full glyph height, not the clipped window
+    expect(inner.style.marginTop).toBe("");
+  });
+
+  it("positions the bottom half lower by half the glyph height, and shifts its inner content up to reveal only the lower half", () => {
+    const el = createSublimeHalfEl("bottom", "g", rect, "16px Consolas", "rgb(1, 2, 3)");
+    expect(el.className).toBe("sublime-half sublime-half-bottom");
+    expect(el.style.top).toBe("28px"); // rect.top + rect.height/2
+    expect(el.style.height).toBe("8px");
+    const inner = el.querySelector(".sublime-half-inner") as HTMLElement;
+    expect(inner.style.marginTop).toBe("-8px");
+  });
+});
+
+describe("randomMoteSpec (pure, with an injectable random source)", () => {
+  it("is fully deterministic given a fixed random() function", () => {
+    const fixed = () => 0.5;
+    expect(randomMoteSpec(fixed)).toEqual(randomMoteSpec(fixed));
+  });
+
+  it("produces different motes for different random draws", () => {
+    // randomMoteSpec consumes 4 random() calls per spec - a 2-value
+    // alternating sequence would realign identically every 4 calls, so use
+    // a simple incrementing sequence instead (mirrors confetti.test.ts's
+    // intent: different draws -> different pieces).
+    let call = 0;
+    const sequence = () => (call++ * 0.13) % 1;
+    expect(randomMoteSpec(sequence)).not.toEqual(randomMoteSpec(sequence));
+  });
+
+  it("keeps the drift small - quiet by design, not confetti-scale", () => {
+    for (const seed of [0, 0.5, 0.999999]) {
+      const spec = randomMoteSpec(() => seed);
+      expect(Math.abs(spec.driftXPx)).toBeLessThanOrEqual(5);
+      expect(spec.driftYPx).toBeGreaterThan(0);
+      expect(spec.driftYPx).toBeLessThanOrEqual(24);
+    }
+  });
+});
+
+describe("createMoteEl (DOM)", () => {
+  it("positions the mote within the glyph's box and sets its drift as CSS custom properties", () => {
+    const rect = { left: 100, top: 50, width: 10, height: 16 };
+    const spec = { offsetXPercent: 50, driftXPx: 3, driftYPx: 20, delayMs: 40 };
+    const el = createMoteEl(rect, spec, "rgb(1, 2, 3)");
+    expect(el.className).toBe("sublime-mote");
+    expect(el.style.left).toBe("105px"); // left + width * 50%
+    expect(el.style.top).toBe("50px");
+    expect(el.style.background).toBe("rgb(1, 2, 3)");
+    expect(el.style.animationDelay).toBe("40ms");
+    expect(el.style.getPropertyValue("--mote-drift-x")).toBe("3px");
+    expect(el.style.getPropertyValue("--mote-drift-y")).toBe("-20px");
+  });
+});
+
+describe("spawnSublimeDecay (DOM)", () => {
+  it("appends the two glyph halves and 4 dust motes, then removes them all together", () => {
+    vi.useFakeTimers();
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+
+    spawnSublimeDecay(overlay, "g", { left: 0, top: 0, width: 8, height: 16 }, "16px sans", "red");
+
+    expect(overlay.querySelectorAll(".sublime-half")).toHaveLength(2);
+    expect(overlay.querySelectorAll(".sublime-mote")).toHaveLength(4);
+
+    vi.advanceTimersByTime(2000);
+    expect(overlay.querySelectorAll(".sublime-half")).toHaveLength(0);
+    expect(overlay.querySelectorAll(".sublime-mote")).toHaveLength(0);
+    vi.useRealTimers();
+  });
+
+  it("motes are appended before the glyph halves, so they paint behind it", () => {
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    spawnSublimeDecay(overlay, "g", { left: 0, top: 0, width: 8, height: 16 }, "16px sans", "red");
+
+    const group = overlay.querySelector(".sublime-decay")!;
+    const children = Array.from(group.children).map((c) => c.className);
+    const lastMoteIndex = children.map((c) => c.includes("sublime-mote")).lastIndexOf(true);
+    const firstHalfIndex = children.findIndex((c) => c.includes("sublime-half"));
+    expect(lastMoteIndex).toBeLessThan(firstHalfIndex);
+  });
+});
+
 describe("setupTypingEffects (DOM wiring)", () => {
   afterEach(() => {
     document.body.innerHTML = "";
@@ -195,7 +398,7 @@ describe("setupTypingEffects (DOM wiring)", () => {
     expect(document.querySelectorAll(".echo-glyph")).toHaveLength(0);
   });
 
-  it("stop() removes the listener", () => {
+  it("stop() removes the input listener", () => {
     const contentEl = document.createElement("div");
     contentEl.contentEditable = "true";
     contentEl.textContent = "a";
@@ -212,5 +415,78 @@ describe("setupTypingEffects (DOM wiring)", () => {
     contentEl.dispatchEvent(new InputEvent("input", { inputType: "insertText", data: "a" }));
 
     expect(document.querySelectorAll(".echo-glyph")).toHaveLength(0);
+  });
+
+  it("spawns a sublime decay for a single backspace, before the character is actually removed", () => {
+    vi.useFakeTimers();
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "true";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+
+    const range = document.createRange();
+    range.setStart(contentEl.firstChild!, 2);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 5, top: 5, width: 6, height: 12 });
+
+    setupTypingEffects(contentEl);
+    contentEl.dispatchEvent(new InputEvent("beforeinput", { inputType: "deleteContentBackward" }));
+
+    expect(document.querySelectorAll(".sublime-half")).toHaveLength(2);
+    expect(document.querySelector(".sublime-half-inner")?.textContent).toBe("b");
+
+    vi.advanceTimersByTime(2000);
+    vi.useRealTimers();
+  });
+
+  it("ignores beforeinput events that aren't a single-character delete", () => {
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "true";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+    const range = document.createRange();
+    range.setStart(contentEl.firstChild!, 2);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 0, top: 0, width: 6, height: 12 });
+
+    setupTypingEffects(contentEl);
+    contentEl.dispatchEvent(new InputEvent("beforeinput", { inputType: "deleteWordBackward" }));
+
+    expect(document.querySelectorAll(".sublime-half")).toHaveLength(0);
+  });
+
+  it("ignores beforeinput on a non-editable pane (Viewer mode)", () => {
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "false";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+
+    setupTypingEffects(contentEl);
+    contentEl.dispatchEvent(new InputEvent("beforeinput", { inputType: "deleteContentBackward" }));
+
+    expect(document.querySelectorAll(".sublime-half")).toHaveLength(0);
+  });
+
+  it("stop() removes the beforeinput listener", () => {
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "true";
+    contentEl.textContent = "ab";
+    document.body.appendChild(contentEl);
+    const range = document.createRange();
+    range.setStart(contentEl.firstChild!, 2);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 0, top: 0, width: 6, height: 12 });
+
+    const stop = setupTypingEffects(contentEl);
+    stop();
+    contentEl.dispatchEvent(new InputEvent("beforeinput", { inputType: "deleteContentBackward" }));
+
+    expect(document.querySelectorAll(".sublime-half")).toHaveLength(0);
   });
 });

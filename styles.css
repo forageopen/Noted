@@ -912,7 +912,7 @@ html[data-theme="cherry"] .fmt-btn:hover {
   }
 }
 
-/* ---- Typing effect: Echo (src/typing-effects.ts) -------------------- */
+/* ---- Typing effects: Echo + Sublime (src/typing-effects.ts) --------- */
 
 .typing-fx-overlay {
   position: fixed;
@@ -949,6 +949,85 @@ html[data-theme="cherry"] .fmt-btn:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .echo-glyph {
+    animation: none;
+    display: none;
+  }
+}
+
+/* Sublime: top-down decay on delete. Two clipped halves of the same
+   character, fading/blurring/lifting on staggered timing (see the two
+   animation-duration + animation-delay values below) so the top visibly
+   dissolves well before the bottom does, rather than both vanishing at
+   once - "the weight of shatter, without the gravity, scatter, or noise". */
+
+.sublime-decay {
+  /* Pure grouping node for one-shot removal (spawnSublimeDecay) - all its
+     children are position: fixed, so this wrapper's own box is irrelevant
+     to layout or paint. */
+  display: contents;
+}
+
+.sublime-half {
+  position: fixed;
+  overflow: hidden;
+  pointer-events: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sublime-half-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: pre;
+  transform-origin: center;
+}
+
+.sublime-half-top .sublime-half-inner {
+  animation: sublime-fade-up 500ms ease-in forwards;
+}
+
+.sublime-half-bottom .sublime-half-inner {
+  animation: sublime-fade-up 650ms ease-in forwards;
+  animation-delay: 320ms;
+}
+
+@keyframes sublime-fade-up {
+  0% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(2px);
+    transform: translateY(-6px);
+  }
+}
+
+.sublime-mote {
+  position: fixed;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: sublime-mote-drift 900ms ease-out forwards;
+}
+
+@keyframes sublime-mote-drift {
+  0% {
+    opacity: 0.8;
+    transform: translate(0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--mote-drift-x, 0px), var(--mote-drift-y, -16px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sublime-half-inner,
+  .sublime-mote {
     animation: none;
     display: none;
   }

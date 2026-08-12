@@ -6,7 +6,8 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 ### Added
 
-- "Echo" typing effect: each keystroke in Edit mode spawns a warm accent-colored duplicate of the glyph that expands and fades over ~180ms. First of a planned three-mode composite typing experience (Echo on insert; "Sublime" decay on delete and "Warp" caret-movement animation to follow). Respects `prefers-reduced-motion`.
+- "Echo" typing effect: each keystroke in Edit mode spawns a warm accent-colored duplicate of the glyph that expands and fades over ~180ms. First of a planned three-mode composite typing experience (Echo on insert; Sublime decay on delete and "Warp" caret-movement animation to follow). Respects `prefers-reduced-motion`.
+- "Sublime" typing effect: each single-character delete (Backspace/Delete) decays the removed glyph top-down over ~1s - the upper half fades/blurs/lifts first while the lower half is still intact, with four small dust motes drifting up behind it. The real deletion is untouched and instant; this is a purely decorative overlay on top of it. Second of the three-mode composite typing experience (Warp caret-movement animation still to follow). Respects `prefers-reduced-motion`.
 
 ## [1.1.0] - 2026-08-11
 
