@@ -37,6 +37,7 @@ import { docxBlockstoBlob } from "./export/docx";
 import { exportJson } from "./export/json";
 import { blocksFromElement, blocksFromTokens, type Block } from "./document-model";
 import { setupPageMarkers } from "./page-markers";
+import { setupTypingEffects } from "./typing-effects";
 import { highlighterIcon, headingIcon } from "./icons";
 import type { Theme } from "./theme";
 
@@ -146,6 +147,7 @@ export class Pane {
   private paragraphStyleToggle!: HTMLButtonElement;
   private paragraphStylePopover!: HTMLElement;
   private stopPageMarkers!: () => void;
+  private stopTypingEffects!: () => void;
   private stopPopoverListeners: Array<() => void> = [];
 
   constructor(container: HTMLElement, getTheme: () => Theme) {
@@ -159,11 +161,13 @@ export class Pane {
     this.render();
     this.wire();
     this.stopPageMarkers = setupPageMarkers(this.root, this.contentEl);
+    this.stopTypingEffects = setupTypingEffects(this.contentEl);
   }
 
   /** Remove this pane's DOM and let it be garbage collected. */
   destroy(): void {
     this.stopPageMarkers();
+    this.stopTypingEffects();
     for (const stop of this.stopPopoverListeners) stop();
     this.root.remove();
   }

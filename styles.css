@@ -911,3 +911,45 @@ html[data-theme="cherry"] .fmt-btn:hover {
     display: none;
   }
 }
+
+/* ---- Typing effect: Echo (src/typing-effects.ts) -------------------- */
+
+.typing-fx-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* never intercepts clicks/typing in the pane beneath */
+  overflow: visible;
+  z-index: 9998; /* above normal content, below the confetti overlay (9999) */
+}
+
+.echo-glyph {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  pointer-events: none;
+  transform-origin: center;
+  text-shadow: 0 0 6px currentColor; /* soft glow - color is the theme accent, set inline per-glyph */
+  animation: echo-pulse 180ms ease-out forwards;
+}
+
+@keyframes echo-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .echo-glyph {
+    animation: none;
+    display: none;
+  }
+}
