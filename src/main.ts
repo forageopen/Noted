@@ -9,7 +9,7 @@ import { Pane } from "./pane";
 import { setupThemeToggle, type Theme } from "./theme";
 import { setupOfflineToggle, setupOfflineUpdates } from "./offline";
 import { setupConfettiTrigger } from "./confetti";
-import { setupVisitorCounter } from "./visitor-counter";
+import { setupVisitorTracking } from "./visitor-counter";
 import { setupFooterAutoHide } from "./footer";
 import { getJSON, setJSON } from "./storage";
 import { dualPaneIcon, singlePaneIcon } from "./icons";
@@ -34,12 +34,7 @@ function main(): void {
   setupOfflineToggle(offlineButton);
   setupOfflineUpdates();
   setupConfettiTrigger(logo);
-
-  const weekBadge = document.getElementById("visitor-week-badge") as HTMLImageElement | null;
-  const totalBadge = document.getElementById("visitor-total-badge") as HTMLImageElement | null;
-  if (weekBadge && totalBadge) {
-    setupVisitorCounter({ weekImg: weekBadge, totalImg: totalBadge });
-  }
+  setupVisitorTracking();
 
   const footer = document.querySelector<HTMLElement>(".app-footer");
   if (footer) setupFooterAutoHide(footer);

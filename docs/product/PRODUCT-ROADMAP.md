@@ -38,7 +38,7 @@ GitHub Pages static app - browser-native, TypeScript, no backend. No further arc
 ### Phase 0.1: v1.1.0 (committed, delivered - PRODUCT-DECISIONS.md ADR-003/ADR-004)
 
 - `.docx` upload (opens like any other file, converted via the shared document IR)
-- Footer visitor counter (real, non-simulated - see ADR-004 for the recorded privacy tradeoff)
+- Footer visitor counter (real, non-simulated, deduped by IP+device+day - see ADR-004 for the original tradeoff and ADR-006 for the switch to GoatCounter)
 - Auto-hide footer (taskbar-style: hover to reveal, click to lock)
 
 ### Phase 1: Draft, not committed

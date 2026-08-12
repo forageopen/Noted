@@ -86,7 +86,7 @@ Dual-pane mode runs two independent instances of this pipeline side by side, eac
 ### v1.1.0 additions (see `PRODUCT-DECISIONS.md` Section 11, ADR-003/ADR-004)
 
 - **`.docx` upload**: opening a Word document works the same as opening a `.md` file - converted internally to Markdown text via the shared document IR, so every downstream feature (viewer, editor, every export format) treats it identically to a native Markdown file.
-- **Visitor counter**: a real (non-simulated) "this week" / "total visitors" counter in the footer, backed by a free third-party badge service - the one deliberate, disclosed exception to the "no network calls after load" criterion in Section 4, recorded as ADR-004.
+- **Visitor counter**: a "Visitor stats" footer link to a public GoatCounter dashboard, deduped by hashed IP+device+day server-side (not a raw page-load counter) - the one deliberate, disclosed exception to the "no network calls after load" criterion in Section 4, recorded as ADR-004/ADR-006.
 - **Auto-hide footer**: hidden by default (taskbar-style), reveals on hover, click-to-lock.
 
 ### Explicitly out of scope for v1
@@ -109,7 +109,7 @@ These may become future proposals (see `PRODUCT-ROADMAP.md`) but are not assumed
 - Zero install - open the URL, drop a file, done.
 - Forkable and extensible - MIT licensed.
 - No server (fully client-side).
-- Offline-capable once loaded, with one disclosed exception: the footer visitor counter (v1.1.0) makes a real network call on every page load - a third-party tracking pixel, recorded as ADR-004 (`PRODUCT-DECISIONS.md` Section 11). Every other feature, including full offline use of the viewer/editor/export pipeline, makes no network calls after the page loads.
+- Offline-capable once loaded, with one disclosed exception: the footer visitor counter (v1.1.0) makes a real network call on every page load - a third-party analytics script (GoatCounter, since ADR-006; originally a raw hit-badge, ADR-004), recorded in `PRODUCT-DECISIONS.md` Section 11. Every other feature, including full offline use of the viewer/editor/export pipeline, makes no network calls after the page loads.
 - A single repository.
 - One-click deployable with GitHub Pages.
 - GitHub hosted; GitHub is a **distribution server**, not a runtime server.
@@ -128,7 +128,7 @@ Without any API or backend, Noted cannot:
 - JAMstack; platform: browser-based web app; hosting: GitHub Pages; backend: none; infrastructure: fully serverless.
 - Language/runtime: TypeScript, vanilla DOM (no UI framework) - same convention as the `human-kernel` sibling repo.
 - **Markdown parsing**, **`.docx` export**, and **`.docx` upload/parsing** require actual runtime libraries; a hand-rolled parser/serializer is not a reasonable use of effort per ABIM's Resource Arbitrage (`PRODUCT-PRINCIPLES.md` Section 7) when mature, small, well-tested options exist. Plain `tsc` (human-kernel's approach) can't resolve npm-package imports for the browser without a bundling step, so Noted introduces one - see `PRODUCT-DECISIONS.md` Section 11, ADR-002. The shipped output remains static files only; the bundler runs at build time, not runtime, so this does not compromise the "no server" / "zero install" criteria above. `.docx` upload's dependency (`mammoth`) is a real, disclosed cost against "Quick load"/"Lightweight" (grew the shipped bundle to ~1.7MB uncompressed / ~317KB gzipped) - accepted for the capability it buys, recorded as ADR-003.
-- **Visitor counter** (v1.1.0): two `<img>` tags pointing at a free third-party badge service, guarded to only activate on the real production hostname (so local/dev/test page loads don't inflate the count) - not a library dependency, but a real, disclosed exception to the local-first/no-network-calls criteria above, recorded as ADR-004.
+- **Visitor counter** (v1.1.0, switched to GoatCounter in ADR-006): a tracking script injected only on the real production hostname (so local/dev/test page loads don't inflate the count), plus a static footer link to GoatCounter's public dashboard - not a library dependency, but a real, disclosed exception to the local-first/no-network-calls criteria above, recorded as ADR-004/ADR-006. Unlike the badge service it replaced, GoatCounter dedupes by hashed IP+device+day server-side rather than counting every page load.
 - **PDF export**: the browser's own print pipeline (a print stylesheet + `window.print()` → "Save as PDF"), not a library - browsers already do this well, and it needs no dependency at all.
 - **`.html` export**: the rendered content serialized into a minimal standalone HTML document (inlined styles), downloaded as a Blob - no dependency needed.
 

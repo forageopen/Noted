@@ -1,81 +1,52 @@
 /**
  * src/visitor-counter.ts
  *
- * Two footer badges - "visitors this week" and "total visitors" - backed by
- * visitor-badge.laobi.icu, a free, no-signup, actively-maintained hit
- * counter: loading its badge <img> increments (and returns, baked into the
- * SVG) a counter keyed by the `page_id` query param. No backend of our own,
- * no polling API call from this app's code - just an <img src>, same as any
- * other embedded image. This IS real, non-simulated traffic (each page load
- * = one hit to each badge below) - there's no dedup by visitor, so it
- * counts page loads, not unique people, same as most badge counters of
- * this kind.
+ * Footer visitor counter, backed by GoatCounter (goatcounter.com) - a
+ * privacy-focused, cookie-free analytics service that dedupes hits by
+ * hashed IP+user-agent+day server-side, so a visitor refreshing the page
+ * (or the same person returning the same day) is counted once, not once
+ * per page load.
  *
- * (An earlier version of this used hits.seeyoufarm.com, which turned out to
- * be dead - the domain no longer resolves at all, confirmed via DNS, not
- * just unreachable from one network. Verified this one actually works,
- * live, before wiring it up - see the increment-across-repeated-requests
- * check that motivated the switch.)
+ * This replaces an earlier visitor-badge.laobi.icu-based counter
+ * (ADR-004): that service counted every single page load with no dedup
+ * at all, so refreshing inflated the number - not what "visitor counter"
+ * should mean. See ADR-006 (`PRODUCT-DECISIONS.md`) for the switch and
+ * its reasoning, including why the footer links to GoatCounter's public
+ * dashboard rather than showing a live inline number - reading a live
+ * count back into the page would need GoatCounter's API, which requires a
+ * Bearer token; embedding that token in client-side code would let anyone
+ * view-source the page and steal it, and the API isn't CORS-enabled for
+ * browser use in the first place. The "Visitor stats" link itself
+ * (index.html) is a plain, static, always-present `<a>`, same as the
+ * Credits/Forage links next to it - no JS needed to wire it.
  *
- * The "this week" badge resets itself every Monday with no logic of ours to
- * maintain: its key includes the ISO-8601 week string (`isoWeekKey`, weeks
- * run Monday-Sunday), so the first hit of a new week is a key the service
- * has never seen before and starts back at zero. The "total" badge uses a
- * fixed key, so it never resets.
- *
- * Note this embeds a third-party tracking pixel, which sends the visitor's
- * IP/user-agent to visitor-badge.laobi.icu on every page load - a real, if
+ * Note this still embeds a third-party tracking script, which sends the
+ * visitor's IP/user-agent to GoatCounter on every page load - a real, if
  * minor, exception to this app's "nothing leaves your machine" posture
- * (README). Flagging that plainly rather than letting the claim quietly go
- * stale.
+ * (README), same disclosed tradeoff as ADR-004, now with actual dedup
+ * instead of none.
  */
 
-const SITE_ID = "forageopen.noted";
+const GOATCOUNTER_SITE = "https://forage.goatcounter.com";
+const GOATCOUNTER_SCRIPT_SRC = "//gc.zgo.at/count.js";
 
 /** The one hostname real visits arrive on. Guarding on this keeps local
- * dev/preview/E2E-test page loads from inflating the real counters - they
- * all point at the exact same counter keys production does, since the key
- * is fixed at build time, not derived per-deployment. */
+ * dev/preview/E2E-test page loads from pinging GoatCounter and inflating
+ * the real count - same reasoning ADR-004 already established for the
+ * counter this replaces. */
 const PRODUCTION_HOSTNAME = "forageopen.github.io";
 
-/** Pure: this Monday-Sunday ISO-8601 week, as e.g. "2026-W33". Computed in
- * UTC so it doesn't depend on the visitor's local timezone/DST. */
-export function isoWeekKey(date: Date): string {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayNum = (d.getUTCDay() + 6) % 7; // Monday=0 .. Sunday=6
-  d.setUTCDate(d.getUTCDate() - dayNum + 3); // shift to this week's Thursday
-  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
-  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3);
-  const week = 1 + Math.round((d.getTime() - firstThursday.getTime()) / (7 * 24 * 60 * 60 * 1000));
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
-}
-
-/** Pure: build a visitor-badge.laobi.icu badge URL for a given counter key. */
-export function badgeUrl(pageId: string, leftText: string): string {
-  const params = new URLSearchParams({
-    page_id: pageId,
-    left_text: leftText,
-    left_color: "#555555",
-    right_color: "#ff2ea6",
-  });
-  return `https://visitor-badge.laobi.icu/badge?${params.toString()}`;
-}
-
-export interface VisitorCounterElements {
-  weekImg: HTMLImageElement;
-  totalImg: HTMLImageElement;
-}
-
-/** DOM: point the two badge <img>s at this week's and the all-time counter -
- * only on the real production host, so localhost/preview/E2E-test loads
- * don't count as real visits (see PRODUCTION_HOSTNAME above). */
-export function setupVisitorCounter(
-  elements: VisitorCounterElements,
-  now: Date = new Date(),
-  hostname: string = window.location.hostname,
-): void {
+/** DOM: injects GoatCounter's tracking script - only on the real
+ * production host (see PRODUCTION_HOSTNAME above), and only once (a
+ * repeat call, e.g. from a test, is a no-op if the script is already
+ * present rather than double-counting a single page load). */
+export function setupVisitorTracking(hostname: string = window.location.hostname, doc: Document = document): void {
   if (hostname !== PRODUCTION_HOSTNAME) return;
-  elements.weekImg.src = badgeUrl(`${SITE_ID}.week.${isoWeekKey(now)}`, "this week");
-  elements.totalImg.src = badgeUrl(`${SITE_ID}.total`, "total visitors");
+  if (doc.querySelector(`script[src="${GOATCOUNTER_SCRIPT_SRC}"]`)) return;
+
+  const script = doc.createElement("script");
+  script.async = true;
+  script.src = GOATCOUNTER_SCRIPT_SRC;
+  script.dataset.goatcounter = `${GOATCOUNTER_SITE}/count`;
+  doc.head.appendChild(script);
 }

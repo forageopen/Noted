@@ -10,9 +10,13 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 - "Sublime" typing effect: each single-character delete (Backspace/Delete) decays the removed glyph top-down over ~1s - the upper half fades/blurs/lifts first while the lower half is still intact, with four small dust motes drifting up behind it. The real deletion is untouched and instant; this is a purely decorative overlay on top of it. Second of the three-mode composite typing experience. Respects `prefers-reduced-motion`.
 - "Warp" typing effect: a persistent quad tracks the caret between same-line positions - its two edges each ease toward the new position on a different time constant, so the quad visibly stretches between the old and new spot before "re-forming" into a thin bar once the trailing edge catches up. Third and final mode of the composite typing experience. Respects `prefers-reduced-motion`.
 
+### Changed
+
+- Visitor counter switched from `visitor-badge.laobi.icu` (counted every page load, including plain refreshes - no dedup at all) to GoatCounter, which dedupes by hashed IP+device+day server-side. The footer now links to a public GoatCounter dashboard instead of showing inline badge images - see `PRODUCT-DECISIONS.md` ADR-006 for why an inline live number isn't safe to fetch client-side.
+
 ### Fixed
 
-- A returning visitor with offline mode previously enabled would keep being served a stale cached app shell indefinitely whenever `dist/main.js`/`styles.css` changed without `src/sw.ts` itself changing: a service worker only re-checks for an update when its own script's bytes differ, so nothing ever triggered a re-cache even though the deploy had landed. `CACHE_NAME` must be bumped alongside any such change - bumped to `v8` (Echo + Sublime) and `v9` (Warp).
+- A returning visitor with offline mode previously enabled would keep being served a stale cached app shell indefinitely whenever `dist/main.js`/`styles.css` changed without `src/sw.ts` itself changing: a service worker only re-checks for an update when its own script's bytes differ, so nothing ever triggered a re-cache even though the deploy had landed. `CACHE_NAME` must be bumped alongside any such change - bumped to `v8` (Echo + Sublime), `v9` (Warp), and `v10` (visitor counter switch).
 
 ## [1.1.0] - 2026-08-11
 
