@@ -8,18 +8,20 @@ Open, read, write, compare, annotate, and export your documents in one place. Ev
 
 **[Try it live →](https://forageopen.github.io/Noted/)**
 
-## v1 feature set
+## Feature set
 
 - **Load**: drag-and-drop or browse for a `.md` or `.docx` file.
-- **Viewer**: rendered Markdown, default view.
+- **Viewer**: rendered Markdown, default view - Markdown/`.docx`-derived content is sanitized before it's ever rendered.
 - **Copy**: one click to copy the file's content.
-- **Theme**: Sakura (light pink/burgundy) / Cherry (charcoal/neon pink) toggle.
+- **Theme**: 7 themes (Sakura, Cherry, Forest Brew, Tea Mist, Blueberry, Kokoblu, Dubai) - a popover picker, not a toggle. Cherry is the default for a first-time visitor.
+- **Typing effects**: keystrokes and deletions get a subtle animated flourish - a glyph glow on insert, a top-down decay (with a reverse word-by-word wave for deleting a whole selection) on delete, and a liquid caret stretch when the cursor moves - all purely decorative, respecting `prefers-reduced-motion`.
 - **Edit tab**: 18-color highlighter, paragraph styles, bold/italic/underline/strikethrough.
 - **Export**: `.html`, `.pdf`, `.docx`, `.md`, `.json`.
 - **Dual window**: two independent panes, side by side, for comparing two files.
 - **Offline mode**: opt-in, self-updating cache.
+- **Visitor counter**: real, deduped by IP+device+day (GoatCounter) - refreshing the page doesn't inflate it.
 
-See `docs/product/PRODUCT-SPEC.md` Section 3 for the full scope (and what's deliberately out of v1).
+See `docs/product/PRODUCT-SPEC.md` Section 3 for the full scope (and what's deliberately out).
 
 ## Governing documents
 

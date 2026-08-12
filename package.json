@@ -1,8 +1,8 @@
 {
   "name": "noted",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "private": true,
-  "description": "Noted (FOGA) - browser-native Markdown viewer/editor",
+  "description": "Noted - browser-native Markdown/.docx viewer and editor",
   "license": "MIT",
   "type": "module",
   "scripts": {

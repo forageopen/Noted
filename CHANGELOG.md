@@ -4,12 +4,13 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 ## [Unreleased]
 
+Nothing pending beyond v1.3.0.
+
+## [1.3.0] - 2026-08-12
+
 ### Added
 
 - Sublime now animates deleting a whole selection, not just a single character: deleting a selected range dissolves it word-by-word in reverse reading order (last word fades first, first word fades last) - the same fade/blur/lift look as the single-character case, reused at word granularity, instead of nothing happening for anything past one character.
-
-### Added
-
 - ESLint (`typescript-eslint` `recommendedTypeChecked`) wired into CI, catching classes of bug `tsc` alone doesn't (floating promises, unsafe `any` propagation, unnecessary type assertions). Fixed the 21 real findings it surfaced across the existing codebase rather than suppressing them.
 - `SECURITY.md` and `.github/dependabot.yml` (npm + github-actions, weekly).
 
