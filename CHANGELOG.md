@@ -4,7 +4,13 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 ## [Unreleased]
 
-Nothing pending beyond v1.2.0.
+### Added
+
+- Sublime now animates deleting a whole selection, not just a single character: deleting a selected range dissolves it word-by-word in reverse reading order (last word fades first, first word fades last) - the same fade/blur/lift look as the single-character case, reused at word granularity, instead of nothing happening for anything past one character.
+
+### Fixed
+
+- `CACHE_NAME` bumped to `v12` alongside the above (`dist/main.js`/`styles.css` changed).
 
 ## [1.2.0] - 2026-08-12
 

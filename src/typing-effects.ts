@@ -10,6 +10,12 @@
  *   half fades/blurs/lifts first while the lower half is still intact,
  *   with four small dust motes drifting up behind it. The longest and
  *   quietest of the set (~1s), deliberately with none of Echo's punch.
+ *   Deleting a whole selection (not just one character) reuses this same
+ *   fade/blur/lift look at word granularity instead: each word gets its
+ *   own fade, staggered so the LAST word starts fading first and the
+ *   FIRST word fades last - a reverse wave sweeping back through the
+ *   selection, rather than nothing happening for anything past a single
+ *   character.
  * - "Warp" (on caret movement): a persistent quad tracks the caret between
  *   same-line positions. Its two edges (leading/trailing) each ease toward
  *   the new position with a different time constant, so the quad visibly
@@ -285,6 +291,92 @@ export function spawnSublimeDecay(
   window.setTimeout(() => group.remove(), Math.max(SUBLIME_CLEANUP_MS, SUBLIME_MOTE_DURATION_MS + 80));
 }
 
+/** Delay between each successive word's fade start (see spawnParagraphDissolve
+ * for the reverse-order stagger this drives) - small enough that even a long
+ * paragraph's total sweep stays brisk rather than dragging on. */
+const PARAGRAPH_WORD_STEP_MS = 55;
+const PARAGRAPH_WORD_DURATION_MS = 500;
+
+export interface WordTarget {
+  rect: GlyphRect;
+  text: string;
+}
+
+/** DOM: splits the current (non-collapsed) selection's plain text into
+ * per-word boxes - captured from the *pre-deletion* DOM (call this from a
+ * `beforeinput` handler, same timing discipline as caretDeletionTarget).
+ * Only handles a selection entirely within a single text node (same
+ * simplifying scope as caretCharacterRect/caretDeletionTarget - a
+ * selection spanning multiple elements, e.g. across a bold span or a
+ * paragraph break, returns null and the effect is skipped; the real
+ * deletion proceeds normally either way). Returns null for a collapsed
+ * selection (that's the single-character path instead), whitespace-only
+ * selections, or no selection at all. */
+export function rangeWordTargets(): WordTarget[] | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+  const range = selection.getRangeAt(0);
+  const node = range.startContainer;
+  if (node.nodeType !== Node.TEXT_NODE || range.endContainer !== node) return null;
+
+  const text = node.textContent ?? "";
+  const selectedText = text.slice(range.startOffset, range.endOffset);
+  if (selectedText.trim() === "") return null;
+
+  const targets: WordTarget[] = [];
+  for (const match of selectedText.matchAll(/\S+/g)) {
+    const start = range.startOffset + match.index;
+    const end = start + match[0].length;
+    const wordRange = document.createRange();
+    wordRange.setStart(node, start);
+    wordRange.setEnd(node, end);
+    const rect = wordRange.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) continue;
+    targets.push({ rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }, text: match[0] });
+  }
+  return targets.length > 0 ? targets : null;
+}
+
+/** DOM: builds one word of the paragraph dissolve - reuses the same
+ * `sublime-fade-up` keyframe Sublime's glyph halves use (styles.css), just
+ * on a whole word instead of half a glyph, with its own animation-delay
+ * for the reverse stagger (see spawnParagraphDissolve). Before its delay
+ * elapses, the element has no animation running yet, so it renders at its
+ * plain (fully opaque) state - reads as "still there," matching the fact
+ * that words later in the reverse order haven't started fading yet. */
+export function createParagraphWordEl(target: WordTarget, font: string, color: string, delayMs: number): HTMLElement {
+  const el = document.createElement("span");
+  el.className = "sublime-word";
+  el.textContent = target.text;
+  el.style.left = `${target.rect.left}px`;
+  el.style.top = `${target.rect.top}px`;
+  el.style.width = `${target.rect.width}px`;
+  el.style.height = `${target.rect.height}px`;
+  el.style.font = font;
+  el.style.color = color;
+  el.style.animationDelay = `${delayMs}ms`;
+  return el;
+}
+
+/** DOM: spawns the reverse-wave paragraph dissolve - one element per word
+ * (in original reading order), each delayed so the LAST word (highest
+ * index) starts fading immediately (delay 0) and the FIRST word (index 0)
+ * starts fading last, sweeping end-to-start back through the selection.
+ * Same "one group, one cleanup" shape as spawnSublimeDecay/
+ * launchConfettiBurst. */
+export function spawnParagraphDissolve(overlay: HTMLElement, targets: WordTarget[], font: string, color: string): void {
+  const group = document.createElement("div");
+  group.className = "sublime-decay";
+  const lastIndex = targets.length - 1;
+  targets.forEach((target, index) => {
+    const delayMs = (lastIndex - index) * PARAGRAPH_WORD_STEP_MS;
+    group.appendChild(createParagraphWordEl(target, font, color, delayMs));
+  });
+  overlay.appendChild(group);
+  const totalMs = lastIndex * PARAGRAPH_WORD_STEP_MS + PARAGRAPH_WORD_DURATION_MS + 80;
+  window.setTimeout(() => group.remove(), totalMs);
+}
+
 // ---------------------------------------------------------------------
 // Warp (caret movement)
 // ---------------------------------------------------------------------
@@ -510,21 +602,34 @@ export function setupTypingEffects(contentEl: HTMLElement): () => void {
     spawnEchoGlyph(getOverlay(), char, rect, styledFontFor(caretNode), readAccentColor());
   };
 
-  // Sublime must read the character's position BEFORE the browser deletes
-  // it, so it hooks `beforeinput` (not `input`) and never calls
-  // preventDefault() - the real deletion always proceeds untouched; this
-  // only captures a snapshot to animate alongside it.
+  // Sublime must read the about-to-be-deleted content's position BEFORE
+  // the browser deletes it, so it hooks `beforeinput` (not `input`) and
+  // never calls preventDefault() - the real deletion always proceeds
+  // untouched; this only captures a snapshot to animate alongside it.
+  // Browsers use the same inputType ("deleteContentBackward"/"...Forward")
+  // whether the deletion is a single collapsed-caret character or a whole
+  // selected range - `selection.isCollapsed` is what actually distinguishes
+  // them, so that's what routes to the single-glyph path vs. the
+  // whole-selection reverse-wave path below.
   const onBeforeInput = (event: Event): void => {
     if (!isEditable()) return;
     const inputEvent = event as InputEvent;
     const direction = deleteDirectionFromInputEvent(inputEvent.inputType);
     if (direction === null) return;
 
+    const selection = window.getSelection();
+    const font = styledFontFor(selection?.getRangeAt(0).endContainer ?? null);
+    const color = readAccentColor();
+
+    if (selection && !selection.isCollapsed) {
+      const targets = rangeWordTargets();
+      if (targets) spawnParagraphDissolve(getOverlay(), targets, font, color);
+      return;
+    }
+
     const target = caretDeletionTarget(direction);
     if (!target) return;
-
-    const caretNode = window.getSelection()?.getRangeAt(0).endContainer ?? null;
-    spawnSublimeDecay(getOverlay(), target.char, target.rect, styledFontFor(caretNode), readAccentColor());
+    spawnSublimeDecay(getOverlay(), target.char, target.rect, font, color);
   };
 
   // Warp is disabled outright under prefers-reduced-motion (not just

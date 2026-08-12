@@ -11,6 +11,9 @@ import {
   randomMoteSpec,
   createMoteEl,
   spawnSublimeDecay,
+  rangeWordTargets,
+  createParagraphWordEl,
+  spawnParagraphDissolve,
   currentCaretPoint,
   isSameLineMove,
   warpDecay,
@@ -353,6 +356,126 @@ describe("spawnSublimeDecay (DOM)", () => {
   });
 });
 
+describe("rangeWordTargets (DOM)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    window.getSelection()?.removeAllRanges();
+    restoreRect();
+  });
+
+  it("returns null when there is no selection", () => {
+    expect(rangeWordTargets()).toBeNull();
+  });
+
+  it("returns null for a collapsed selection - that's the single-character path instead", () => {
+    const div = document.createElement("div");
+    div.textContent = "hello";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 2);
+    range.collapse(true);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+
+    expect(rangeWordTargets()).toBeNull();
+  });
+
+  it("returns null for a whitespace-only selection", () => {
+    const div = document.createElement("div");
+    div.textContent = "a   b";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 1);
+    range.setEnd(div.firstChild!, 4);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+
+    expect(rangeWordTargets()).toBeNull();
+  });
+
+  it("splits a multi-word selection into one target per word, in reading order", () => {
+    const div = document.createElement("div");
+    div.textContent = "the quick brown fox";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 0);
+    range.setEnd(div.firstChild!, "the quick brown fox".length);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 0, top: 0, width: 10, height: 16 });
+
+    const targets = rangeWordTargets();
+    expect(targets?.map((t) => t.text)).toEqual(["the", "quick", "brown", "fox"]);
+  });
+
+  it("returns null for a selection spanning more than one text node", () => {
+    const div = document.createElement("div");
+    div.innerHTML = "hello <b>world</b>";
+    document.body.appendChild(div);
+    const range = document.createRange();
+    range.setStart(div.firstChild!, 0);
+    range.setEnd(div.querySelector("b")!.firstChild!, 3);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+
+    expect(rangeWordTargets()).toBeNull();
+  });
+});
+
+describe("createParagraphWordEl (DOM)", () => {
+  it("builds a positioned span carrying the word and matching style, with the given delay", () => {
+    const el = createParagraphWordEl({ text: "brown", rect: { left: 1, top: 2, width: 30, height: 16 } }, "16px Consolas", "rgb(1, 2, 3)", 110);
+    expect(el.className).toBe("sublime-word");
+    expect(el.textContent).toBe("brown");
+    expect(el.style.left).toBe("1px");
+    expect(el.style.top).toBe("2px");
+    expect(el.style.width).toBe("30px");
+    expect(el.style.color).toBe("rgb(1, 2, 3)");
+    expect(el.style.animationDelay).toBe("110ms");
+  });
+});
+
+describe("spawnParagraphDissolve (DOM)", () => {
+  it("appends one word element per target, then removes them all together", () => {
+    vi.useFakeTimers();
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    const targets = [
+      { text: "the", rect: { left: 0, top: 0, width: 20, height: 16 } },
+      { text: "quick", rect: { left: 20, top: 0, width: 30, height: 16 } },
+      { text: "fox", rect: { left: 50, top: 0, width: 20, height: 16 } },
+    ];
+
+    spawnParagraphDissolve(overlay, targets, "16px sans", "red");
+
+    const words = overlay.querySelectorAll<HTMLElement>(".sublime-word");
+    expect(words).toHaveLength(3);
+    expect(Array.from(words).map((w) => w.textContent)).toEqual(["the", "quick", "fox"]);
+
+    vi.advanceTimersByTime(2000);
+    expect(overlay.querySelectorAll(".sublime-word")).toHaveLength(0);
+    vi.useRealTimers();
+  });
+
+  it("delays the LAST word the least (0ms) and the FIRST word the most - a reverse wave", () => {
+    const overlay = document.createElement("div");
+    document.body.appendChild(overlay);
+    const targets = [
+      { text: "the", rect: { left: 0, top: 0, width: 20, height: 16 } },
+      { text: "quick", rect: { left: 20, top: 0, width: 30, height: 16 } },
+      { text: "fox", rect: { left: 50, top: 0, width: 20, height: 16 } },
+    ];
+
+    spawnParagraphDissolve(overlay, targets, "16px sans", "red");
+
+    const words = Array.from(overlay.querySelectorAll<HTMLElement>(".sublime-word"));
+    const delays = words.map((w) => parseFloat(w.style.animationDelay));
+    expect(delays[0]).toBeGreaterThan(delays[1]!); // "the" (first) delayed more than "quick"
+    expect(delays[1]).toBeGreaterThan(delays[2]!); // "quick" delayed more than "fox" (last)
+    expect(delays[2]).toBe(0); // "fox" (last word) starts immediately
+  });
+});
+
 describe("currentCaretPoint (DOM)", () => {
   afterEach(() => {
     document.body.innerHTML = "";
@@ -691,6 +814,33 @@ describe("setupTypingEffects (DOM wiring)", () => {
 
     expect(document.querySelectorAll(".sublime-half")).toHaveLength(2);
     expect(document.querySelector(".sublime-half-inner")?.textContent).toBe("b");
+
+    vi.advanceTimersByTime(2000);
+    vi.useRealTimers();
+  });
+
+  it("spawns a reverse-wave paragraph dissolve when a multi-word selection is deleted", () => {
+    vi.useFakeTimers();
+    const contentEl = document.createElement("div");
+    contentEl.contentEditable = "true";
+    contentEl.textContent = "the quick fox";
+    document.body.appendChild(contentEl);
+
+    const range = document.createRange();
+    range.setStart(contentEl.firstChild!, 0);
+    range.setEnd(contentEl.firstChild!, "the quick fox".length);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    stubRect({ left: 0, top: 0, width: 20, height: 12 });
+
+    setupTypingEffects(contentEl);
+    // Same inputType a real Backspace-over-a-selection fires - the browser
+    // doesn't use a different inputType for "selection" vs "single caret".
+    contentEl.dispatchEvent(new InputEvent("beforeinput", { inputType: "deleteContentBackward" }));
+
+    const words = document.querySelectorAll<HTMLElement>(".sublime-word");
+    expect(Array.from(words).map((w) => w.textContent)).toEqual(["the", "quick", "fox"]);
+    expect(document.querySelectorAll(".sublime-half")).toHaveLength(0); // not the single-character path
 
     vi.advanceTimersByTime(2000);
     vi.useRealTimers();

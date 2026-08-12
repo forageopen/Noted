@@ -1291,6 +1291,31 @@ html[data-theme="dubai"] .app-title {
   }
 }
 
+/* Sublime, whole-selection variant: deleting a selected range (not just one
+   character) reuses the same sublime-fade-up keyframe at word granularity -
+   one word per element, each with its own animation-delay (set inline,
+   src/typing-effects.ts's spawnParagraphDissolve) so the LAST word starts
+   fading first and the FIRST word fades last - a reverse wave sweeping back
+   through the selection. Before its delay elapses, a word has no animation
+   running yet and simply renders at its plain, fully-opaque state. */
+.sublime-word {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  animation: sublime-fade-up 500ms ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sublime-word {
+    animation: none;
+    display: none;
+  }
+}
+
 /* Warp: liquid caret stretch between same-line positions. One persistent
    quad per pane (src/typing-effects.ts's createWarpCaretController), its
    left/width/top/height driven per-frame by JS (the actual stretch - two
