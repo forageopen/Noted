@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
 import { renderMarkdown, lexMarkdown, stripFrontmatter } from "./markdown";
 
@@ -21,6 +22,17 @@ describe("renderMarkdown", () => {
     const html = renderMarkdown("```\nconst x = 1;\n```");
     expect(html).toContain("<pre>");
     expect(html).toContain("<code>");
+  });
+
+  it("strips raw <script> tags embedded in the Markdown source (XSS)", () => {
+    const html = renderMarkdown('Hello\n\n<script>alert(document.domain)</script>');
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("alert(document.domain)");
+  });
+
+  it("strips onerror/onload handlers on inline raw HTML embedded in the Markdown source (XSS)", () => {
+    const html = renderMarkdown('Hello <img src=x onerror="alert(document.domain)">');
+    expect(html).not.toContain("onerror");
   });
 });
 

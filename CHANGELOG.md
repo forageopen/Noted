@@ -10,7 +10,8 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 ### Fixed
 
-- `CACHE_NAME` bumped to `v12` alongside the above (`dist/main.js`/`styles.css` changed).
+- **Security:** Markdown/`.docx`-derived HTML was rendered straight to `innerHTML` with no sanitization - a `.md` file containing e.g. `<img src=x onerror="...">` executed arbitrary script the instant it was opened, via the app's own primary drag-and-drop load path. Added `dompurify` (`src/sanitize.ts`) as a mandatory step between parsing and rendering, for both the Markdown render path and the `.docx` upload path. Verified against a real exploit attempt in a real browser, not just unit tests. See `PRODUCT-DECISIONS.md` ADR-008.
+- `CACHE_NAME` bumped to `v12` (paragraph dissolve) and `v13` (XSS fix).
 
 ## [1.2.0] - 2026-08-12
 

@@ -16,6 +16,7 @@
 
 import mammoth from "mammoth/mammoth.browser";
 import { blocksFromElement, blocksToMarkdown } from "./document-model";
+import { sanitizeHtml } from "./sanitize";
 
 export interface LoadedFile {
   name: string;
@@ -78,11 +79,15 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
 
 /** Convert a .docx file's raw bytes into Markdown text via mammoth (docx ->
  * HTML) + the shared document IR (HTML -> IR -> Markdown). Best-effort, not
- * lossless - see the module doc comment on `blocksToMarkdown`. */
+ * lossless - see the module doc comment on `blocksToMarkdown`. Sanitized
+ * before it ever touches innerHTML - see sanitize.ts's header comment for
+ * why this can't wait until a later step (event handler attributes like
+ * onerror can fire the moment they're assigned, independent of whether
+ * this detached container ever reaches a live, on-screen document). */
 export async function docxToMarkdown(buffer: ArrayBuffer): Promise<string> {
   const { value: html } = await mammoth.convertToHtml({ arrayBuffer: buffer });
   const container = document.createElement("div");
-  container.innerHTML = html;
+  container.innerHTML = sanitizeHtml(html);
   return blocksToMarkdown(blocksFromElement(container));
 }
 

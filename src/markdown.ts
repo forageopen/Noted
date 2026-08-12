@@ -6,6 +6,7 @@
  */
 
 import { marked, type Token, type Tokens } from "marked";
+import { sanitizeHtml } from "./sanitize";
 
 marked.setOptions({
   gfm: true,
@@ -33,13 +34,16 @@ export function stripFrontmatter(source: string): string {
   return lines.slice(contentStart).join("\n");
 }
 
-/** Render Markdown source to an HTML string (synchronous). */
+/** Render Markdown source to a sanitized HTML string (synchronous). `marked`
+ * passes raw HTML embedded in the source straight through unchanged - see
+ * sanitize.ts's header comment for why the sanitize step here is not
+ * optional. */
 export function renderMarkdown(source: string): string {
   const out = marked.parse(source, { async: false });
   if (typeof out !== "string") {
     throw new Error("marked.parse returned a Promise; async mode is not used here");
   }
-  return out;
+  return sanitizeHtml(out);
 }
 
 /** Lex Markdown source into marked's token tree, for structural export (docx). */

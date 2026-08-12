@@ -131,6 +131,7 @@ Without any API or backend, Noted cannot:
 - **Visitor counter** (v1.1.0, switched to GoatCounter in ADR-006): a tracking script injected only on the real production hostname (so local/dev/test page loads don't inflate the count), plus a static footer link to GoatCounter's public dashboard - not a library dependency, but a real, disclosed exception to the local-first/no-network-calls criteria above, recorded as ADR-004/ADR-006. Unlike the badge service it replaced, GoatCounter dedupes by hashed IP+device+day server-side rather than counting every page load.
 - **PDF export**: the browser's own print pipeline (a print stylesheet + `window.print()` → "Save as PDF"), not a library - browsers already do this well, and it needs no dependency at all.
 - **`.html` export**: the rendered content serialized into a minimal standalone HTML document (inlined styles), downloaded as a Blob - no dependency needed.
+- **HTML sanitization**: every Markdown/`.docx`-derived HTML string is passed through `dompurify` (`src/sanitize.ts`) before it's allowed to touch `innerHTML` - `Markdown -> Parser -> Sanitizer -> Safe HTML -> DOM`. Not optional: `marked` (the Markdown parser) intentionally passes raw HTML embedded in the source straight through unchanged, so without this step a loaded file could execute arbitrary script in this app's origin. Recorded as ADR-008.
 
 ## 7. Repository Architecture
 

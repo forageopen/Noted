@@ -44,17 +44,17 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v12 (the paragraph-dissolve typing effect changed styles.css
-// and dist/main.js's content, but not this file's own bytes - a service
-// worker only re-installs when sw.js itself changes, so without this bump
-// a returning offline-mode visitor would keep the pre-change cache-first
-// bundle forever, invisibly, even though the deploy had already landed -
-// see CHANGELOG.md's Fixed entries for the v8-v11 cases this same class
-// of bug already caused) - a new CACHE_NAME forces a fresh precache on
-// activate (see the "activate" handler below, which deletes any cache
-// whose name isn't CACHE_NAME) so offline users actually pick up the new
-// bundle instead of keeping a stale cache-first main.js forever.
-const CACHE_NAME = "noted-shell-v12";
+// Bumped to v13 (the XSS/sanitization fix changed dist/main.js's content -
+// a security fix is especially not something a returning offline-mode
+// visitor should be able to stay stuck without, on top of the general
+// reason every prior bump here exists: a service worker only re-installs
+// when sw.js itself changes, not when dist/main.js does - see CHANGELOG.md's
+// Fixed entries for the v8-v12 cases this same class of bug already
+// caused) - a new CACHE_NAME forces a fresh precache on activate (see the
+// "activate" handler below, which deletes any cache whose name isn't
+// CACHE_NAME) so offline users actually pick up the new bundle instead of
+// keeping a stale cache-first main.js forever.
+const CACHE_NAME = "noted-shell-v13";
 const SHELL_PATHS = [
   "",
   "index.html",

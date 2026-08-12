@@ -6,6 +6,29 @@ function makeFile(name: string, content: string, type = ""): File {
   return new File([content], name, { type });
 }
 
+vi.mock("mammoth/mammoth.browser", () => ({
+  default: {
+    convertToHtml: vi.fn().mockResolvedValue({
+      value: '<p>Hello</p><img src=x onerror="alert(document.domain)">',
+    }),
+  },
+}));
+
+describe("docxToMarkdown (DOM) - sanitizes mammoth's output before it ever touches innerHTML", () => {
+  it("strips a malicious event handler mammoth's HTML output would otherwise contain", async () => {
+    const { docxToMarkdown } = await import("./file-loader");
+    // The exact ArrayBuffer content doesn't matter here - mammoth itself is
+    // mocked above to return html containing an onerror handler, simulating
+    // what a crafted .docx could produce; this proves docxToMarkdown's own
+    // sanitizeHtml() call (src/file-loader.ts) actually runs before that
+    // html is assigned to a container's innerHTML.
+    const markdown = await docxToMarkdown(new ArrayBuffer(0));
+    expect(markdown).not.toContain("onerror");
+    expect(markdown).not.toContain("alert(document.domain)");
+    expect(markdown).toContain("Hello");
+  });
+});
+
 describe("isMarkdownFile (pure)", () => {
   it("accepts .md and .markdown", () => {
     expect(isMarkdownFile(makeFile("a.md", ""))).toBe(true);
