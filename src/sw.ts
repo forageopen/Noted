@@ -44,12 +44,13 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v15 (.html upload support changed dist/main.js's bytes - see
-// PRODUCT-DECISIONS.md ADR-010) - a new CACHE_NAME forces a fresh precache
+// Bumped to v16 (.html now renders live in a sandboxed iframe instead of
+// flattening to Markdown, changing dist/main.js's bytes - see
+// PRODUCT-DECISIONS.md ADR-011) - a new CACHE_NAME forces a fresh precache
 // on activate (see the "activate" handler below, which deletes any cache
 // whose name isn't CACHE_NAME) so offline users actually pick up the new
 // bundle instead of keeping a stale cache-first main.js forever.
-const CACHE_NAME = "noted-shell-v15";
+const CACHE_NAME = "noted-shell-v16";
 const SHELL_PATHS = [
   "",
   "index.html",

@@ -43,29 +43,35 @@ A local-first, browser-native Markdown viewer and editor: drop a file in, read i
 ## 2. Architecture
 
 ```
-File (drag-and-drop or browse: .md, .docx per ADR-003, or .html per ADR-010)
+File (drag-and-drop or browse: .md, .docx per ADR-003, or .html per ADR-011)
         |
-        v
-  .docx? -> mammoth (docx->HTML) -\
-  .html? -> (already HTML)  ------+-> shared document IR -> Markdown text
+        +-- .md/.docx -----------------------------+
+        |                                           v
+        |                          .docx? -> mammoth (docx->HTML)
+        |                                           |
+        |                                           v
+        |                          shared document IR -> Markdown text
+        |                                           |
+        |                                           v
+        |                                    Markdown Parser
+        |                                           |
+        |                                     ┌─────┴─────┐
+        |                                     |           |
+        |                                   Viewer       Editor
+        |                                     |           |
+        |                                     └─────┬─────┘
+        |                                           |
+        |                                           v
+        |                          Export (.html / .pdf / .docx / .md / .json)
         |
-        v
-   Markdown Parser
-        |
-        v
-  ┌─────┴─────┐
-  |           |
-Viewer       Editor
-  |           |
-  └─────┬─────┘
-        |
-        v
-  Export (.html / .pdf / .docx / .md / .json)
+        +-- .html -> raw bytes, unmodified/unsanitized -> sandboxed
+                      <iframe sandbox="allow-scripts"> (srcdoc) -> Viewer only,
+                      no Edit tab, .html-only export (re-download original)
 ```
 
 Dual-pane mode runs two independent instances of this pipeline side by side, each with its own loaded file, viewer/editor state, and export controls - they don't share state with each other beyond both reading the same global theme.
 
-`.docx` and `.json` export, and `.docx`/`.html` upload, all consume/produce one shared document intermediate representation (headings/paragraphs/lists/tables/code blocks/inline formatting) rather than each format implementing its own independent parsing - see `PRODUCT-DECISIONS.md` Section 11, ADR-003 (`.docx`) and ADR-010 (`.html`).
+`.docx` and `.json` export, and `.docx` upload, consume/produce one shared document intermediate representation (headings/paragraphs/lists/tables/code blocks/inline formatting) rather than each format implementing its own independent parsing - see `PRODUCT-DECISIONS.md` Section 11, ADR-003. `.html` upload deliberately does NOT go through this IR (a prior approach that did, ADR-010, was superseded the same day it shipped) - see ADR-011: an `.html` file's value is its visual/behavioral presentation (CSS/SVG/JS animation), which the IR's document-*structure* model can't represent, so it's rendered live in a sandboxed iframe instead.
 
 ## 3. Minimum Viable Delivery
 
@@ -104,7 +110,12 @@ Dual-pane mode runs two independent instances of this pipeline side by side, eac
 
 ### v1.4.0 additions (see `PRODUCT-DECISIONS.md` Section 11, ADR-010)
 
-- **`.html` upload**: opening an `.html` file works the same as opening a `.md` or `.docx` file - routed through the same shared document IR the `.docx` path uses (HTML -> `blocksFromElement` -> `blocksToMarkdown`), just without the mammoth conversion step, so every downstream feature treats it identically to a native Markdown file. No new parsing dependency needed.
+- **`.html` upload**: opening an `.html` file works the same as opening a `.md` or `.docx` file - routed through the same shared document IR the `.docx` path uses (HTML -> `blocksFromElement` -> `blocksToMarkdown`), just without the mammoth conversion step, so every downstream feature treats it identically to a native Markdown file. No new parsing dependency needed. *(Superseded in v1.5.0 - see below - this flattened a loaded `.html` file down to document structure, discarding exactly the CSS/SVG/JS-driven animation the owner opens `.html` files to see.)*
+
+### v1.5.0 additions (see `PRODUCT-DECISIONS.md` Section 11, ADR-011)
+
+- **`.html` viewing, rendered live**: a loaded `.html` file's raw bytes now render in a sandboxed `<iframe sandbox="allow-scripts">` (via `srcdoc`) instead of being flattened to Markdown - full CSS/SVG/JS-driven animation fidelity, exactly as authored. Deliberately unsanitized (the sandbox's lack of `allow-same-origin`, not `dompurify`, is the security boundary here - see ADR-011). View-only: no Edit tab, and only `.html` export (re-download of the original bytes) stays enabled - `.pdf`/`.docx`/`.md`/`.json` are disabled rather than falling back to a lossy reconstruction.
+- **Format-list tooltip**: hovering the "Noted" logo shows the full list of supported file extensions (`.md`, `.markdown`, `.docx`, `.html`, `.htm`).
 
 ### Explicitly out of scope for v1
 
@@ -126,7 +137,7 @@ These may become future proposals (see `PRODUCT-ROADMAP.md`) but are not assumed
 - Zero install - open the URL, drop a file, done.
 - Forkable and extensible - MIT licensed.
 - No server (fully client-side).
-- Offline-capable once loaded, with one disclosed exception: the footer visitor counter (v1.1.0) makes a real network call on every page load - a third-party analytics script (GoatCounter, since ADR-006; originally a raw hit-badge, ADR-004), recorded in `PRODUCT-DECISIONS.md` Section 11. Every other feature, including full offline use of the viewer/editor/export pipeline, makes no network calls after the page loads.
+- Offline-capable once loaded, with two disclosed exceptions: the footer visitor counter (v1.1.0) makes a real network call on every page load - a third-party analytics script (GoatCounter, since ADR-006; originally a raw hit-badge, ADR-004), recorded in `PRODUCT-DECISIONS.md` Section 11; and, since v1.5.0 (ADR-011), a loaded `.html` file renders in a sandboxed iframe whose own script (the loaded file's, not Noted's) can make its own network requests - inherent to rendering arbitrary HTML/JS "live" rather than a Noted network call, but disclosed here for the same reason. Every other feature, including full offline use of the viewer/editor/export pipeline, makes no network calls after the page loads.
 - A single repository.
 - One-click deployable with GitHub Pages.
 - GitHub hosted; GitHub is a **distribution server**, not a runtime server.
@@ -149,6 +160,7 @@ Without any API or backend, Noted cannot:
 - **PDF export**: the browser's own print pipeline (a print stylesheet + `window.print()` → "Save as PDF"), not a library - browsers already do this well, and it needs no dependency at all.
 - **`.html` export**: the rendered content serialized into a minimal standalone HTML document (inlined styles), downloaded as a Blob - no dependency needed.
 - **HTML sanitization**: every Markdown/`.docx`-derived HTML string is passed through `dompurify` (`src/sanitize.ts`) before it's allowed to touch `innerHTML` - `Markdown -> Parser -> Sanitizer -> Safe HTML -> DOM`. Not optional: `marked` (the Markdown parser) intentionally passes raw HTML embedded in the source straight through unchanged, so without this step a loaded file could execute arbitrary script in this app's origin. Recorded as ADR-008.
+- **`.html` live viewer** (v1.5.0, ADR-011): a loaded `.html` file's raw bytes render via a plain `<iframe sandbox="allow-scripts">`'s `srcdoc` - a native browser API, no library dependency. Deliberately bypasses `dompurify` for this one path: the sandbox attribute's lack of `allow-same-origin` (not sanitization) is what keeps the loaded file's script from touching Noted's own origin, and stripping `<script>` would defeat the feature's entire purpose (rendering the file's actual embedded animation/behavior).
 
 ## 7. Repository Architecture
 

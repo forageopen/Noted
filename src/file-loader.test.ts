@@ -1,6 +1,5 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
-import type { LoadedFile } from "./file-loader";
 import { isDocxFile, isHtmlFile, isMarkdownFile, isSupportedFile, pickSupportedFile, setupFileLoader } from "./file-loader";
 
 function makeFile(name: string, content: string, type = ""): File {
@@ -26,21 +25,6 @@ describe("docxToMarkdown (DOM) - sanitizes mammoth's output before it ever touch
     const markdown = await docxToMarkdown(new ArrayBuffer(0));
     expect(markdown).not.toContain("onerror");
     expect(markdown).not.toContain("alert(document.domain)");
-    expect(markdown).toContain("Hello");
-  });
-});
-
-describe("htmlToMarkdown (DOM) - sanitizes a loaded .html file before it ever touches innerHTML", () => {
-  it("strips a malicious event handler and drops <head>/<script>, keeping body content", async () => {
-    const { htmlToMarkdown } = await import("./file-loader");
-    const markdown = htmlToMarkdown(
-      '<html><head><title>t</title><script>alert(1)</script></head>' +
-        '<body><h1>Title</h1><p>Hello</p><img src=x onerror="alert(document.domain)"></body></html>',
-    );
-    expect(markdown).not.toContain("onerror");
-    expect(markdown).not.toContain("alert(document.domain)");
-    expect(markdown).not.toContain("alert(1)");
-    expect(markdown).toContain("Title");
     expect(markdown).toContain("Hello");
   });
 });
@@ -143,7 +127,7 @@ describe("setupFileLoader (jsdom wiring)", () => {
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     dropZone.dispatchEvent(event);
     await vi.waitFor(() => expect(onLoad).toHaveBeenCalled());
-    expect(onLoad).toHaveBeenCalledWith({ name: "notes.md", content: "# Hi" });
+    expect(onLoad).toHaveBeenCalledWith({ name: "notes.md", content: "# Hi", format: "markdown" });
   });
 
   it("reports an error when a non-markdown file is dropped", () => {
@@ -162,19 +146,21 @@ describe("setupFileLoader (jsdom wiring)", () => {
     Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
     fileInput.dispatchEvent(new Event("change"));
     await vi.waitFor(() => expect(onLoad).toHaveBeenCalled());
-    expect(onLoad).toHaveBeenCalledWith({ name: "chosen.md", content: "content here" });
+    expect(onLoad).toHaveBeenCalledWith({ name: "chosen.md", content: "content here", format: "markdown" });
   });
 
-  it("loads an .html file dropped on the drop zone, converted to Markdown", async () => {
+  it("loads an .html file dropped on the drop zone as raw, unmodified HTML - format: \"html\"", async () => {
     const { dropZone, onLoad } = setup();
-    const file = makeFile("page.html", "<h1>Title</h1><p>Hello</p>");
+    const raw = '<h1>Title</h1><script>document.title="animated"</script>';
+    const file = makeFile("page.html", raw);
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     dropZone.dispatchEvent(event);
     await vi.waitFor(() => expect(onLoad).toHaveBeenCalled());
-    const loaded = onLoad.mock.calls[0]?.[0] as LoadedFile | undefined;
-    expect(loaded?.name).toBe("page.html");
-    expect(loaded?.content).toContain("# Title");
-    expect(loaded?.content).toContain("Hello");
+    // Deliberately byte-for-byte unmodified, script tag included - see
+    // file-loader.ts's module doc comment: safety for "html"-format content
+    // is enforced by Pane's sandboxed iframe, not by sanitizing/converting
+    // it here (that's what ADR-011 replaced ADR-010's approach with).
+    expect(onLoad).toHaveBeenCalledWith({ name: "page.html", content: raw, format: "html" });
   });
 });

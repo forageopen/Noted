@@ -93,6 +93,87 @@ describe("Pane content sync between Viewer and Edit tabs", () => {
   });
 });
 
+async function loadHtmlFile(pane: Pane, name: string, content: string): Promise<void> {
+  const fileInput = pane.root.querySelector<HTMLInputElement>(".file-input")!;
+  const file = new File([content], name, { type: "text/html" });
+  Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+  fileInput.dispatchEvent(new Event("change"));
+  await vi.waitFor(() => {
+    expect(pane.root.querySelector(".content-frame")!.hasAttribute("hidden")).toBe(false);
+  });
+}
+
+describe("HTML viewer mode (sandboxed live render, see PRODUCT-DECISIONS.md ADR-011)", () => {
+  it("renders a loaded .html file's raw source into a sandboxed iframe via srcdoc, .content hidden", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    const raw = '<h1>Title</h1><script>document.title="animated"</script>';
+    await loadHtmlFile(pane, "page.html", raw);
+
+    const frame = pane.root.querySelector<HTMLIFrameElement>(".content-frame")!;
+    const content = pane.root.querySelector<HTMLElement>(".content")!;
+    expect(frame.srcdoc).toBe(raw);
+    expect(content.hasAttribute("hidden")).toBe(true);
+    expect(content.innerHTML).toBe("");
+  });
+
+  it("the iframe is sandboxed with allow-scripts only - no allow-same-origin", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    await loadHtmlFile(pane, "page.html", "<p>hi</p>");
+
+    const frame = pane.root.querySelector<HTMLIFrameElement>(".content-frame")!;
+    expect(frame.getAttribute("sandbox")).toContain("allow-scripts");
+    expect(frame.getAttribute("sandbox")).not.toContain("allow-same-origin");
+  });
+
+  it("disables the Edit tab - .html files are view-only", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    await loadHtmlFile(pane, "page.html", "<p>hi</p>");
+
+    const editTab = pane.root.querySelector<HTMLButtonElement>(".tab-edit")!;
+    expect(editTab.disabled).toBe(true);
+    editTab.click();
+    expect(pane.root.querySelector<HTMLElement>(".content")!.contentEditable).toBe("false");
+  });
+
+  it("only the .html export button stays enabled - .pdf/.docx/.md/.json are disabled", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    await loadHtmlFile(pane, "page.html", "<p>hi</p>");
+
+    const buttons = Array.from(pane.root.querySelectorAll<HTMLButtonElement>(".export-btn"));
+    for (const button of buttons) {
+      expect(button.disabled).toBe(button.dataset.export !== "html");
+    }
+  });
+
+  it("Copy copies the ORIGINAL raw .html source, unmodified", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    const raw = '<img src=x onerror="alert(1)">';
+    await loadHtmlFile(pane, "page.html", raw);
+
+    pane.root.querySelector<HTMLButtonElement>(".copy-btn")!.click();
+    await vi.waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(raw);
+  });
+
+  it("re-loading a .md file after a .html file re-enables Edit and hides the iframe", async () => {
+    const container = document.createElement("div");
+    const pane = new Pane(container, () => "sakura");
+    await loadHtmlFile(pane, "page.html", "<p>hi</p>");
+    await loadFile(pane, "a.md", "# Hello");
+
+    const frame = pane.root.querySelector<HTMLIFrameElement>(".content-frame")!;
+    const editTab = pane.root.querySelector<HTMLButtonElement>(".tab-edit")!;
+    expect(frame.hasAttribute("hidden")).toBe(true);
+    expect(frame.hasAttribute("srcdoc")).toBe(false);
+    expect(editTab.disabled).toBe(false);
+  });
+});
+
 describe("Browse button hover-to-clear (once a file is loaded)", () => {
   it("does not change text on hover before any file is loaded", () => {
     const container = document.createElement("div");
@@ -222,7 +303,7 @@ describe("Click-to-create-new-file (drop-zone)", () => {
     // use (PRODUCT-SPEC Section 3): Copy is raw Markdown, not rendered HTML.
     const copyButton = pane.root.querySelector<HTMLButtonElement>(".copy-btn")!;
     copyButton.click();
-    // Copy no-ops on an empty rawMarkdown (see copyRawMarkdown's early
+    // Copy no-ops on an empty rawContent (see copyRawContent's early
     // return) - clipboard should not have been called with anything.
     expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
   });
@@ -311,7 +392,7 @@ describe("Export popover", () => {
   it(".md export no-ops on a brand new file with no original Markdown source, same as Copy", () => {
     const container = document.createElement("div");
     const pane = new Pane(container, () => "sakura");
-    pane.root.querySelector<HTMLElement>(".drop-zone")!.click(); // createNewFile() - rawMarkdown stays ""
+    pane.root.querySelector<HTMLElement>(".drop-zone")!.click(); // createNewFile() - rawContent stays ""
 
     const createObjectURLSpy = vi.spyOn(URL, "createObjectURL");
     pane.root.querySelector<HTMLButtonElement>(".export-toggle")!.click();

@@ -454,7 +454,7 @@ html[data-theme="dubai"] .app-title {
    adding a themed variant is just "define --ds-glow or don't" rather than
    also updating this rule every time. */
 .btn:hover:not(:disabled),
-.tab-btn:hover,
+.tab-btn:hover:not(:disabled),
 .fmt-btn:hover {
   box-shadow: var(--ds-glow, none);
 }
@@ -651,8 +651,13 @@ html[data-theme="dubai"] .app-title {
   transition: color 0.1s ease, box-shadow 0.15s ease;
 }
 
-.tab-btn:hover {
+.tab-btn:hover:not(:disabled) {
   color: var(--ds-text);
+}
+
+.tab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .tab-btn.active {
@@ -788,6 +793,17 @@ html[data-theme="dubai"] .app-title {
 
 .content[contenteditable="true"] {
   background: var(--ds-surface-sunken);
+}
+
+/* Sandboxed live-HTML viewer (a loaded .html file - see file-loader.ts's
+   module doc comment and PRODUCT-DECISIONS.md ADR-011) - a plain iframe,
+   not styled/scrolled like .content, since the loaded document controls
+   its own layout/scrolling/background entirely. */
+.content-frame {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  background: #fff;
 }
 
 /* Chromium-only (this app's target, ADR-0003) scrollbar styling - a

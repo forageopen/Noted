@@ -4,7 +4,18 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 ## [Unreleased]
 
-Nothing pending beyond v1.4.0.
+Nothing pending beyond v1.5.0.
+
+## [1.5.0] - 2026-08-20
+
+### Added
+
+- `.html` files now render **live** in a sandboxed `<iframe sandbox="allow-scripts">` (via `srcdoc`) instead of being flattened to Markdown - full CSS/SVG/JS-driven animation fidelity, exactly as authored. Supersedes v1.4.0's approach the same day it shipped: that approach threw away embedded animation/vector graphics, which is the actual reason to open a file as `.html` in the first place. View-only (no Edit tab) and `.html`-export-only (re-download of the original bytes) - `.pdf`/`.docx`/`.md`/`.json` export are disabled for `.html`-loaded files rather than silently falling back to a lossy reconstruction. Deliberately unsanitized: the iframe sandbox's lack of `allow-same-origin` is the actual security boundary (the loaded file's script cannot read/write anything in Noted's own origin), not `dompurify`. See `PRODUCT-DECISIONS.md` ADR-011.
+- Hovering the "Noted" logo now shows a tooltip listing every supported file extension (`.md`, `.markdown`, `.docx`, `.html`, `.htm`).
+
+### Changed
+
+- `CACHE_NAME` bumped to `v16` (the `.html` viewer change above changed `dist/main.js`'s bytes).
 
 ## [1.4.0] - 2026-08-20
 

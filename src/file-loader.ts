@@ -3,13 +3,28 @@
  *
  * Loading a .md, .docx, or .html file, either via drag-and-drop onto a drop
  * zone or via a hidden <input type=file> triggered by a visible "browse"
- * button. A .docx is converted to Markdown text on load (docx -> HTML via
- * mammoth -> shared IR via `blocksFromElement` -> Markdown via
- * `blocksToMarkdown`, see src/document-model.ts); a .html file goes through
- * the same shared IR minus the mammoth step (its markup is already HTML).
- * Every downstream consumer - the viewer, the Edit tab, .md/.html/.pdf/.json
- * export - only ever deals with Markdown text, regardless of which format
- * the file came in as.
+ * button.
+ *
+ * Two different downstream representations, tagged by `LoadedFile.format`:
+ *  - "markdown": a .md file's text as-is, or a .docx converted to Markdown
+ *    on load (docx -> HTML via mammoth -> shared IR via `blocksFromElement`
+ *    -> Markdown via `blocksToMarkdown`, see src/document-model.ts). Pane
+ *    renders this into its `contentEl` (viewable AND editable - see
+ *    pane.ts's module doc comment).
+ *  - "html": a .html file's raw text, completely unmodified and
+ *    *unsanitized* - see PRODUCT-DECISIONS.md ADR-011 for why flattening
+ *    it to Markdown (the original ADR-010 approach) was superseded: it
+ *    threw away exactly what makes a hand-authored .html file worth
+ *    opening as HTML in the first place (CSS/SVG/JS-driven animation,
+ *    layout). Pane renders this into a sandboxed `<iframe sandbox=
+ *    "allow-scripts">` via `srcdoc` instead of `contentEl.innerHTML` -
+ *    the iframe's lack of `allow-same-origin` is what makes it safe to
+ *    skip sanitization here (an opaque-origin iframe can't read/write
+ *    anything in Noted's own origin no matter what the loaded HTML
+ *    contains), view-only (no Edit tab), and .html-export-only (re-download
+ *    of the original bytes; no meaningful way to flatten arbitrary HTML+JS
+ *    back into Markdown/.docx/.json without losing the point of loading it
+ *    as HTML at all).
  *
  * Pure logic (isSupportedFile, pickSupportedFile) is kept separate from the
  * DOM wiring (setupFileLoader) so it's unit-testable without simulating
@@ -20,9 +35,12 @@ import mammoth from "mammoth/mammoth.browser";
 import { blocksFromElement, blocksToMarkdown } from "./document-model";
 import { sanitizeHtml } from "./sanitize";
 
+export type LoadedFileFormat = "markdown" | "html";
+
 export interface LoadedFile {
   name: string;
   content: string;
+  format: LoadedFileFormat;
 }
 
 /** Pure: does this File look like a Markdown file? */
@@ -104,20 +122,6 @@ export async function docxToMarkdown(buffer: ArrayBuffer): Promise<string> {
   return blocksToMarkdown(blocksFromElement(container));
 }
 
-/** Convert a raw .html file's text into Markdown, via the same shared IR
- * `docxToMarkdown` uses (HTML -> IR -> Markdown) - just without the mammoth
- * step, since the source is already HTML. A loaded .html file is exactly as
- * untrusted as mammoth's docx-derived HTML, so it goes through the same
- * `sanitizeHtml()` call before ever touching `innerHTML` (see sanitize.ts).
- * A full `<html><head>...<body>...</body></html>` document works fine here:
- * DOMPurify's default profile (no `WHOLE_DOCUMENT` option set) already
- * discards the doctype/head/script/style and keeps only body content. */
-export function htmlToMarkdown(html: string): string {
-  const container = document.createElement("div");
-  container.innerHTML = sanitizeHtml(html);
-  return blocksToMarkdown(blocksFromElement(container));
-}
-
 export interface FileLoaderElements {
   dropZone: HTMLElement;
   fileInput: HTMLInputElement;
@@ -181,14 +185,20 @@ async function loadAndEmit(
 ): Promise<void> {
   try {
     let content: string;
+    let format: LoadedFileFormat = "markdown";
     if (isDocxFile(file)) {
       content = await docxToMarkdown(await readFileAsArrayBuffer(file));
     } else if (isHtmlFile(file)) {
-      content = htmlToMarkdown(await readFileAsText(file));
+      // Deliberately NOT sanitized and NOT converted to Markdown - see this
+      // file's module doc comment and PRODUCT-DECISIONS.md ADR-011. Safety
+      // is enforced downstream by Pane rendering "html"-format content into
+      // a sandboxed iframe (no allow-same-origin), never by innerHTML.
+      content = await readFileAsText(file);
+      format = "html";
     } else {
       content = await readFileAsText(file);
     }
-    onLoad({ name: file.name, content });
+    onLoad({ name: file.name, content, format });
   } catch (err) {
     onError(err instanceof Error ? err.message : "Failed to read file.");
   }

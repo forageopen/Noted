@@ -10,8 +10,9 @@ Open, read, write, compare, annotate, and export your documents in one place. Ev
 
 ## Feature set
 
-- **Load**: drag-and-drop or browse for a `.md`, `.docx`, or `.html` file.
-- **Viewer**: rendered Markdown, default view - Markdown/`.docx`/`.html`-derived content is sanitized before it's ever rendered.
+- **Load**: drag-and-drop or browse for a `.md`, `.docx`, or `.html` file (hover the "Noted" logo for the full supported-extension list).
+- **Viewer**: rendered Markdown, default view - `.md`/`.docx`-derived content is sanitized before it's ever rendered. A loaded `.html` file renders live and unsanitized in a sandboxed viewer instead (full CSS/SVG/JS animation fidelity, view-only - see below).
+- **`.html` live viewer**: a loaded `.html` file's embedded animation, vector graphics, and scripts render exactly as authored, in a sandboxed `<iframe>` isolated from the rest of the app. View-only (no Edit tab) and `.html`-export-only, since there's no lossless way to fold arbitrary HTML+JS back into Markdown/`.docx`/`.json`.
 - **Copy**: one click to copy the file's content.
 - **Theme**: 7 themes (Sakura, Cherry, Forest Brew, Tea Mist, Blueberry, Kokoblu, Dubai) - a popover picker, not a toggle. Cherry is the default for a first-time visitor.
 - **Typing effects**: keystrokes and deletions get a subtle animated flourish - a glyph glow on insert, a top-down decay (with a reverse word-by-word wave for deleting a whole selection) on delete, and a liquid caret stretch when the cursor moves - all purely decorative, respecting `prefers-reduced-motion`.

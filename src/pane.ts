@@ -4,7 +4,10 @@
  * The reusable load/view/edit/export unit. Instantiated once for the
  * single-pane layout, twice (independently) for dual-pane mode.
  *
- * --- Content-sync design (Viewer <-> Edit tabs) -----------------------
+ * A Pane has two content modes, set by the loaded file's `LoadedFileFormat`
+ * (`this.contentFormat`) and never mixed:
+ *
+ * --- "markdown" mode: Content-sync design (Viewer <-> Edit tabs) ------
  *
  * Source of truth: **rendered HTML**, held in one DOM node (`this.contentEl`).
  *
@@ -23,15 +26,31 @@
  * back into Markdown on every keystroke would be lossy and is out of
  * scope for v1.
  *
- * Separately, `this.rawMarkdown` holds the *original* file content
+ * Separately, `this.rawContent` holds the *original* file content
  * exactly as loaded, untouched by edits. That's what the Copy button
- * copies ("copies the loaded file's raw Markdown content" - PRODUCT-SPEC
+ * copies ("copies the loaded file's raw content" - PRODUCT-SPEC
  * Section 3), and what feeds the docx exporter's `marked.lexer()` path
  * when the user hasn't edited anything yet (see src/export/docx.ts).
+ *
+ * --- "html" mode: sandboxed live viewer, view-only ---------------------
+ *
+ * A loaded .html file is rendered live - CSS/SVG/JS animation intact -
+ * into `this.contentFrame`, a `<iframe sandbox="allow-scripts">` whose
+ * `srcdoc` is the file's raw, unmodified, *unsanitized* bytes (see
+ * file-loader.ts's module doc comment and PRODUCT-DECISIONS.md ADR-011
+ * for why this supersedes the original Markdown-flattening approach).
+ * Deliberately never touches `contentEl.innerHTML` - the sandbox
+ * attribute's lack of `allow-same-origin` is the actual security
+ * boundary here, not sanitization; the loaded document runs in an opaque
+ * origin that cannot read or write anything in Noted's own page. No Edit
+ * tab (`this.tabEdit` disabled) and only `.html` export is enabled
+ * (re-download of the original bytes) - there's no lossless way to fold
+ * arbitrary HTML+JS into Markdown/.docx/.json, and doing so lossily would
+ * defeat the entire point of loading it as HTML.
  */
 
 import { renderMarkdown, lexMarkdown, stripFrontmatter } from "./markdown";
-import { setupFileLoader, type LoadedFile } from "./file-loader";
+import { setupFileLoader, type LoadedFile, type LoadedFileFormat } from "./file-loader";
 import { exportHtml, withExtension, downloadBlob } from "./export/html";
 import { docxBlockstoBlob } from "./export/docx";
 import { exportJson } from "./export/json";
@@ -120,16 +139,18 @@ export class Pane {
   readonly id: number;
   readonly root: HTMLElement;
 
-  private rawMarkdown = "";
-  /** rawMarkdown with any leading YAML frontmatter block stripped - this,
-   * not rawMarkdown, is what gets rendered/edited/docx-exported. The
-   * frontmatter (doc_id, tags, etc.) is tooling metadata, not content a
-   * reader wants to see - the file name is already shown separately.
-   * rawMarkdown itself stays untouched since Copy's contract is the
-   * literal, unmodified file content (PRODUCT-SPEC Section 3). */
+  private rawContent = "";
+  /** rawContent with any leading YAML frontmatter block stripped - this,
+   * not rawContent, is what gets rendered/edited/docx-exported in
+   * "markdown" mode. The frontmatter (doc_id, tags, etc.) is tooling
+   * metadata, not content a reader wants to see - the file name is
+   * already shown separately. rawContent itself stays untouched since
+   * Copy's contract is the literal, unmodified file content (PRODUCT-SPEC
+   * Section 3). Unused in "html" mode (see module doc comment). */
   private displayMarkdown = "";
   private fileName: string | null = null;
   private mode: PaneMode = "view";
+  private contentFormat: LoadedFileFormat = "markdown";
   private edited = false;
   private getTheme: () => Theme;
 
@@ -144,6 +165,7 @@ export class Pane {
   private tabEdit!: HTMLButtonElement;
   private editToolbar!: HTMLElement;
   private contentEl!: HTMLElement;
+  private contentFrame!: HTMLIFrameElement;
   private exportButtons!: HTMLButtonElement[];
   private exportToggle!: HTMLButtonElement;
   private exportPopover!: HTMLElement;
@@ -232,6 +254,7 @@ export class Pane {
         <p>Drag &amp; drop a <code>.md</code>, <code>.docx</code>, or <code>.html</code> file here, click to start a new one, or use "Open file&hellip;" above.</p>
       </div>
       <div class="content" hidden></div>
+      <iframe class="content-frame" title="HTML preview" sandbox="allow-scripts" hidden></iframe>
     `;
 
     this.dropZone = this.q(".drop-zone");
@@ -245,6 +268,7 @@ export class Pane {
     this.tabEdit = this.q<HTMLButtonElement>(".tab-edit");
     this.editToolbar = this.q(".edit-toolbar");
     this.contentEl = this.q(".content");
+    this.contentFrame = this.q<HTMLIFrameElement>(".content-frame");
     this.exportButtons = Array.from(this.root.querySelectorAll<HTMLButtonElement>(".export-btn"));
     this.exportToggle = this.q<HTMLButtonElement>(".export-toggle");
     this.exportPopover = this.q(".export-popover");
@@ -303,7 +327,7 @@ export class Pane {
     this.tabView.addEventListener("click", () => this.setMode("view"));
     this.tabEdit.addEventListener("click", () => this.setMode("edit"));
 
-    this.copyButton.addEventListener("click", () => void this.copyRawMarkdown());
+    this.copyButton.addEventListener("click", () => void this.copyRawContent());
 
     this.contentEl.addEventListener("input", () => {
       this.edited = true;
@@ -454,15 +478,34 @@ export class Pane {
 
   private load(file: LoadedFile): void {
     this.fileName = file.name;
-    this.rawMarkdown = file.content;
-    this.displayMarkdown = stripFrontmatter(file.content);
+    this.rawContent = file.content;
+    this.contentFormat = file.format;
     this.edited = false;
     this.renderFileName();
     this.dropZone.hidden = true;
-    this.contentEl.hidden = false;
-    this.contentEl.innerHTML = renderMarkdown(this.displayMarkdown);
+
+    if (file.format === "html") {
+      // See module doc comment - deliberately never touches
+      // contentEl.innerHTML with this content; the sandboxed iframe (no
+      // allow-same-origin) is the security boundary, not sanitization.
+      this.displayMarkdown = "";
+      this.contentEl.hidden = true;
+      this.contentEl.innerHTML = "";
+      this.contentFrame.hidden = false;
+      this.contentFrame.srcdoc = file.content;
+      this.tabEdit.disabled = true;
+    } else {
+      this.displayMarkdown = stripFrontmatter(file.content);
+      this.contentFrame.hidden = true;
+      this.contentFrame.removeAttribute("srcdoc");
+      this.contentEl.hidden = false;
+      this.contentEl.innerHTML = renderMarkdown(this.displayMarkdown);
+      this.tabEdit.disabled = false;
+    }
+
     this.copyButton.disabled = false;
     this.exportToggle.disabled = false;
+    this.updateExportButtons();
     this.setMode("view");
   }
 
@@ -474,15 +517,20 @@ export class Pane {
    * first keystroke - see buildDocumentModel()), not false like `load()`. */
   private createNewFile(): void {
     this.fileName = "Untitled.md";
-    this.rawMarkdown = "";
+    this.rawContent = "";
     this.displayMarkdown = "";
+    this.contentFormat = "markdown";
     this.edited = true;
     this.renderFileName();
     this.dropZone.hidden = true;
+    this.contentFrame.hidden = true;
+    this.contentFrame.removeAttribute("srcdoc");
     this.contentEl.hidden = false;
     this.contentEl.innerHTML = "";
+    this.tabEdit.disabled = false;
     this.copyButton.disabled = false;
     this.exportToggle.disabled = false;
+    this.updateExportButtons();
     this.setMode("edit");
     this.contentEl.focus();
   }
@@ -492,17 +540,22 @@ export class Pane {
    * file is loaded. Mirrors `load()`'s fields/UI toggles in reverse. */
   private clearFile(): void {
     this.fileName = null;
-    this.rawMarkdown = "";
+    this.rawContent = "";
     this.displayMarkdown = "";
+    this.contentFormat = "markdown";
     this.edited = false;
     this.fileNameBase.textContent = "No file loaded";
     this.fileNameExt.textContent = "";
     this.browseButton.textContent = "Open file…";
     this.contentEl.innerHTML = "";
     this.contentEl.hidden = true;
+    this.contentFrame.hidden = true;
+    this.contentFrame.removeAttribute("srcdoc");
+    this.tabEdit.disabled = false;
     this.dropZone.hidden = false;
     this.copyButton.disabled = true;
     this.exportToggle.disabled = true;
+    this.updateExportButtons();
     this.setMode("view");
   }
 
@@ -517,6 +570,10 @@ export class Pane {
   }
 
   private setMode(mode: PaneMode): void {
+    // "html" mode has no Edit tab (this.tabEdit is disabled, which already
+    // blocks the click that would normally get here) - guarded again here
+    // against any other/future caller.
+    if (mode === "edit" && this.contentFormat === "html") return;
     this.mode = mode;
     const isEdit = mode === "edit";
     this.contentEl.contentEditable = isEdit ? "true" : "false";
@@ -527,13 +584,24 @@ export class Pane {
     this.tabEdit.setAttribute("aria-selected", String(isEdit));
   }
 
-  private async copyRawMarkdown(): Promise<void> {
-    if (!this.rawMarkdown) return;
+  private async copyRawContent(): Promise<void> {
+    if (!this.rawContent) return;
     try {
-      await navigator.clipboard.writeText(this.rawMarkdown);
+      await navigator.clipboard.writeText(this.rawContent);
       this.flashCopied();
     } catch {
       this.notify("Could not copy to clipboard.");
+    }
+  }
+
+  /** "html" mode only allows re-downloading the original bytes as .html -
+   * no Edit tab, no lossless way to fold arbitrary HTML+JS into
+   * Markdown/.docx/.json (see module doc comment) - so every other export
+   * button is disabled while an "html"-format file is loaded. */
+  private updateExportButtons(): void {
+    const htmlOnly = this.contentFormat === "html";
+    for (const button of this.exportButtons) {
+      button.disabled = htmlOnly && button.dataset.export !== "html";
     }
   }
 
@@ -547,9 +615,17 @@ export class Pane {
 
   private async handleExport(format: string): Promise<void> {
     if (!this.fileName) return;
+    // Defense in depth alongside updateExportButtons() disabling the
+    // buttons themselves - see that method's doc comment.
+    if (this.contentFormat === "html" && format !== "html") return;
     const title = this.fileName.replace(/\.[^./\\]+$/, "");
     if (format === "html") {
-      exportHtml(title, this.contentEl.innerHTML, this.getTheme());
+      if (this.contentFormat === "html") {
+        if (!this.rawContent) return;
+        downloadBlob(withExtension(title, "html"), this.rawContent, "text/html");
+      } else {
+        exportHtml(title, this.contentEl.innerHTML, this.getTheme());
+      }
       return;
     }
     if (format === "pdf") {
@@ -569,10 +645,10 @@ export class Pane {
       // live only in the DOM (see the module doc comment), so this can
       // only ever export the ORIGINAL loaded text, not the edited result -
       // reconstructing Markdown from edited HTML is explicitly out of
-      // scope. No-ops on an empty rawMarkdown (a brand new, never-loaded
+      // scope. No-ops on an empty rawContent (a brand new, never-loaded
       // file), same as Copy.
-      if (!this.rawMarkdown) return;
-      downloadBlob(withExtension(title, "md"), this.rawMarkdown, "text/markdown");
+      if (!this.rawContent) return;
+      downloadBlob(withExtension(title, "md"), this.rawContent, "text/markdown");
       return;
     }
     if (format === "json") {
