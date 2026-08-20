@@ -4,7 +4,17 @@ All notable changes to this repository are recorded here, per `REPO-STANDARD.md`
 
 ## [Unreleased]
 
-Nothing pending beyond v1.3.0.
+Nothing pending beyond v1.4.0.
+
+## [1.4.0] - 2026-08-20
+
+### Added
+
+- `.html` upload: opening an `.html` file now works the same as opening a `.md` or `.docx` file - drag-and-drop, browse, or the file input all accept it. Routed through the same shared document IR the `.docx` path already uses (HTML -> `blocksFromElement` -> `blocksToMarkdown`), just without the mammoth conversion step, since the source is already HTML - no new parsing dependency needed. Sanitized the same way and at the same point as `.docx` upload (`sanitizeHtml()` before the string ever touches a container's `innerHTML`), per `PRODUCT-DECISIONS.md` ADR-008's discipline. A full `<html><head>...<body>...</body></html>` document works without extra handling - DOMPurify's default profile discards the doctype/`<head>`/`<script>`/`<style>` and keeps only sanitized body content. See `PRODUCT-DECISIONS.md` ADR-010.
+
+### Changed
+
+- `CACHE_NAME` bumped to `v15` (`.html` upload support changed `dist/main.js`'s bytes).
 
 ## [1.3.0] - 2026-08-12
 

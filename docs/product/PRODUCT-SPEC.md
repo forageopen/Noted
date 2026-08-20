@@ -33,7 +33,7 @@ Workspace (a browser-native Markdown workspace).
 Static web app; everything runs in the user's browser, no backend server.
 
 ##### Source
-The user's own `.md` files, opened locally in the browser - nothing is uploaded anywhere.
+The user's own `.md`, `.docx`, or `.html` files, opened locally in the browser - nothing is uploaded anywhere.
 
 ##### Definition
 A local-first, browser-native Markdown viewer and editor: drop a file in, read it, edit it, compare it against another, export it - without installing anything or sending the file anywhere.
@@ -43,10 +43,11 @@ A local-first, browser-native Markdown viewer and editor: drop a file in, read i
 ## 2. Architecture
 
 ```
-File (drag-and-drop or browse: .md, or .docx per ADR-003)
+File (drag-and-drop or browse: .md, .docx per ADR-003, or .html per ADR-010)
         |
         v
-  .docx? -> mammoth (docx->HTML) -> shared document IR -> Markdown text
+  .docx? -> mammoth (docx->HTML) -\
+  .html? -> (already HTML)  ------+-> shared document IR -> Markdown text
         |
         v
    Markdown Parser
@@ -64,7 +65,7 @@ Viewer       Editor
 
 Dual-pane mode runs two independent instances of this pipeline side by side, each with its own loaded file, viewer/editor state, and export controls - they don't share state with each other beyond both reading the same global theme.
 
-`.docx` and `.json` export, and `.docx` upload, all consume/produce one shared document intermediate representation (headings/paragraphs/lists/tables/code blocks/inline formatting) rather than each format implementing its own independent parsing - see `PRODUCT-DECISIONS.md` Section 11, ADR-003.
+`.docx` and `.json` export, and `.docx`/`.html` upload, all consume/produce one shared document intermediate representation (headings/paragraphs/lists/tables/code blocks/inline formatting) rather than each format implementing its own independent parsing - see `PRODUCT-DECISIONS.md` Section 11, ADR-003 (`.docx`) and ADR-010 (`.html`).
 
 ## 3. Minimum Viable Delivery
 
@@ -100,6 +101,10 @@ Dual-pane mode runs two independent instances of this pipeline side by side, eac
 - **Paragraph-selection delete**: deleting a selected range (not just a single character) now dissolves it word-by-word in reverse reading order (last word fades first, first word fades last) - the same "Sublime" look extended to word granularity, instead of nothing happening for anything past one character.
 - **HTML sanitization** (security fix): see Section 6 below, ADR-008.
 - Repository/CI/dependency hardening (least-privilege CI permissions, SHA-pinned GitHub Actions, ESLint, Dependabot, `SECURITY.md`) - not user-facing, recorded as ADR-009.
+
+### v1.4.0 additions (see `PRODUCT-DECISIONS.md` Section 11, ADR-010)
+
+- **`.html` upload**: opening an `.html` file works the same as opening a `.md` or `.docx` file - routed through the same shared document IR the `.docx` path uses (HTML -> `blocksFromElement` -> `blocksToMarkdown`), just without the mammoth conversion step, so every downstream feature treats it identically to a native Markdown file. No new parsing dependency needed.
 
 ### Explicitly out of scope for v1
 

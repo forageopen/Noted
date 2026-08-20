@@ -1,8 +1,8 @@
 {
   "name": "noted",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
-  "description": "Noted - browser-native Markdown/.docx viewer and editor",
+  "description": "Noted - browser-native Markdown/.docx/.html viewer and editor",
   "license": "MIT",
   "type": "module",
   "scripts": {

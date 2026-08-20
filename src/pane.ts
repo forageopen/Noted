@@ -182,7 +182,7 @@ export class Pane {
       <div class="pane-toolbar-row">
         <div class="file-controls">
           <button type="button" class="btn browse-btn">Open file&hellip;</button>
-          <input type="file" class="file-input" accept=".md,.markdown,.docx" hidden />
+          <input type="file" class="file-input" accept=".md,.markdown,.docx,.html,.htm" hidden />
           <span class="file-name"><span class="file-name-base">No file loaded</span><span class="file-name-ext"></span></span>
         </div>
         <div class="tabs" role="tablist">
@@ -229,7 +229,7 @@ export class Pane {
         </span>
       </div>
       <div class="drop-zone" role="button" tabindex="0">
-        <p>Drag &amp; drop a <code>.md</code> or <code>.docx</code> file here, click to start a new one, or use "Open file&hellip;" above.</p>
+        <p>Drag &amp; drop a <code>.md</code>, <code>.docx</code>, or <code>.html</code> file here, click to start a new one, or use "Open file&hellip;" above.</p>
       </div>
       <div class="content" hidden></div>
     `;

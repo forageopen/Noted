@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
-import { isDocxFile, isMarkdownFile, isSupportedFile, pickSupportedFile, setupFileLoader } from "./file-loader";
+import type { LoadedFile } from "./file-loader";
+import { isDocxFile, isHtmlFile, isMarkdownFile, isSupportedFile, pickSupportedFile, setupFileLoader } from "./file-loader";
 
 function makeFile(name: string, content: string, type = ""): File {
   return new File([content], name, { type });
@@ -25,6 +26,21 @@ describe("docxToMarkdown (DOM) - sanitizes mammoth's output before it ever touch
     const markdown = await docxToMarkdown(new ArrayBuffer(0));
     expect(markdown).not.toContain("onerror");
     expect(markdown).not.toContain("alert(document.domain)");
+    expect(markdown).toContain("Hello");
+  });
+});
+
+describe("htmlToMarkdown (DOM) - sanitizes a loaded .html file before it ever touches innerHTML", () => {
+  it("strips a malicious event handler and drops <head>/<script>, keeping body content", async () => {
+    const { htmlToMarkdown } = await import("./file-loader");
+    const markdown = htmlToMarkdown(
+      '<html><head><title>t</title><script>alert(1)</script></head>' +
+        '<body><h1>Title</h1><p>Hello</p><img src=x onerror="alert(document.domain)"></body></html>',
+    );
+    expect(markdown).not.toContain("onerror");
+    expect(markdown).not.toContain("alert(document.domain)");
+    expect(markdown).not.toContain("alert(1)");
+    expect(markdown).toContain("Title");
     expect(markdown).toContain("Hello");
   });
 });
@@ -60,10 +76,23 @@ describe("isDocxFile (pure)", () => {
   });
 });
 
+describe("isHtmlFile (pure)", () => {
+  it("accepts .html and .htm by extension or mime type", () => {
+    expect(isHtmlFile(makeFile("a.html", ""))).toBe(true);
+    expect(isHtmlFile(makeFile("a.htm", ""))).toBe(true);
+    expect(isHtmlFile(makeFile("a.bin", "", "text/html"))).toBe(true);
+  });
+
+  it("rejects other files", () => {
+    expect(isHtmlFile(makeFile("a.md", ""))).toBe(false);
+  });
+});
+
 describe("isSupportedFile (pure)", () => {
-  it("accepts both .md and .docx", () => {
+  it("accepts .md, .docx, and .html", () => {
     expect(isSupportedFile(makeFile("a.md", ""))).toBe(true);
     expect(isSupportedFile(makeFile("a.docx", ""))).toBe(true);
+    expect(isSupportedFile(makeFile("a.html", ""))).toBe(true);
   });
 
   it("rejects everything else", () => {
@@ -134,5 +163,18 @@ describe("setupFileLoader (jsdom wiring)", () => {
     fileInput.dispatchEvent(new Event("change"));
     await vi.waitFor(() => expect(onLoad).toHaveBeenCalled());
     expect(onLoad).toHaveBeenCalledWith({ name: "chosen.md", content: "content here" });
+  });
+
+  it("loads an .html file dropped on the drop zone, converted to Markdown", async () => {
+    const { dropZone, onLoad } = setup();
+    const file = makeFile("page.html", "<h1>Title</h1><p>Hello</p>");
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
+    dropZone.dispatchEvent(event);
+    await vi.waitFor(() => expect(onLoad).toHaveBeenCalled());
+    const loaded = onLoad.mock.calls[0]?.[0] as LoadedFile | undefined;
+    expect(loaded?.name).toBe("page.html");
+    expect(loaded?.content).toContain("# Title");
+    expect(loaded?.content).toContain("Hello");
   });
 });

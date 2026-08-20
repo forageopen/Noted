@@ -44,18 +44,12 @@
 // correct, specific type.
 const scope = self as unknown as ServiceWorkerGlobalScope;
 
-// Bumped to v14 (the ESLint cleanup pass touched file-loader.ts,
-// typing-effects.ts, and main.ts, changing dist/main.js's exact bytes even
-// though behavior is unchanged - the service worker's cache-first fetch
-// handler cares about bytes, not intent, so this still needs the same bump
-// every prior content change here has needed: it only re-installs when
-// sw.js itself changes, not when dist/main.js does - see CHANGELOG.md's
-// Fixed entries for the v8-v13 cases this same class of bug already
-// caused) - a new CACHE_NAME forces a fresh precache on activate (see the
-// "activate" handler below, which deletes any cache whose name isn't
-// CACHE_NAME) so offline users actually pick up the new bundle instead of
-// keeping a stale cache-first main.js forever.
-const CACHE_NAME = "noted-shell-v14";
+// Bumped to v15 (.html upload support changed dist/main.js's bytes - see
+// PRODUCT-DECISIONS.md ADR-010) - a new CACHE_NAME forces a fresh precache
+// on activate (see the "activate" handler below, which deletes any cache
+// whose name isn't CACHE_NAME) so offline users actually pick up the new
+// bundle instead of keeping a stale cache-first main.js forever.
+const CACHE_NAME = "noted-shell-v15";
 const SHELL_PATHS = [
   "",
   "index.html",

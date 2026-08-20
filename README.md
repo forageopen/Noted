@@ -2,7 +2,7 @@
 
 ![Noted](assets/images/hero.png)
 
-**Noted is a simple, private notepad for Markdown and Word documents.**
+**Noted is a simple, private notepad for Markdown, Word, and HTML documents.**
 
 Open, read, write, compare, annotate, and export your documents in one place. Everything runs in your browser, works offline, and nothing leaves your machine.
 
@@ -10,8 +10,8 @@ Open, read, write, compare, annotate, and export your documents in one place. Ev
 
 ## Feature set
 
-- **Load**: drag-and-drop or browse for a `.md` or `.docx` file.
-- **Viewer**: rendered Markdown, default view - Markdown/`.docx`-derived content is sanitized before it's ever rendered.
+- **Load**: drag-and-drop or browse for a `.md`, `.docx`, or `.html` file.
+- **Viewer**: rendered Markdown, default view - Markdown/`.docx`/`.html`-derived content is sanitized before it's ever rendered.
 - **Copy**: one click to copy the file's content.
 - **Theme**: 7 themes (Sakura, Cherry, Forest Brew, Tea Mist, Blueberry, Kokoblu, Dubai) - a popover picker, not a toggle. Cherry is the default for a first-time visitor.
 - **Typing effects**: keystrokes and deletions get a subtle animated flourish - a glyph glow on insert, a top-down decay (with a reverse word-by-word wave for deleting a whole selection) on delete, and a liquid caret stretch when the cursor moves - all purely decorative, respecting `prefers-reduced-motion`.

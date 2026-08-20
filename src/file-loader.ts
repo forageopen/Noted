@@ -1,13 +1,15 @@
 /**
  * src/file-loader.ts
  *
- * Loading a .md or .docx file, either via drag-and-drop onto a drop zone or
- * via a hidden <input type=file> triggered by a visible "browse" button.
- * A .docx is converted to Markdown text on load (docx -> HTML via mammoth
- * -> shared IR via `blocksFromElement` -> Markdown via `blocksToMarkdown`,
- * see src/document-model.ts) so every downstream consumer - the viewer,
- * the Edit tab, .md/.html/.pdf/.json export - only ever deals with
- * Markdown text, regardless of which format the file came in as.
+ * Loading a .md, .docx, or .html file, either via drag-and-drop onto a drop
+ * zone or via a hidden <input type=file> triggered by a visible "browse"
+ * button. A .docx is converted to Markdown text on load (docx -> HTML via
+ * mammoth -> shared IR via `blocksFromElement` -> Markdown via
+ * `blocksToMarkdown`, see src/document-model.ts); a .html file goes through
+ * the same shared IR minus the mammoth step (its markup is already HTML).
+ * Every downstream consumer - the viewer, the Edit tab, .md/.html/.pdf/.json
+ * export - only ever deals with Markdown text, regardless of which format
+ * the file came in as.
  *
  * Pure logic (isSupportedFile, pickSupportedFile) is kept separate from the
  * DOM wiring (setupFileLoader) so it's unit-testable without simulating
@@ -38,9 +40,15 @@ export function isDocxFile(file: File): boolean {
   );
 }
 
+/** Pure: does this File look like an HTML file? */
+export function isHtmlFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".html") || name.endsWith(".htm") || file.type === "text/html";
+}
+
 /** Pure: does this File look like a file Noted knows how to load? */
 export function isSupportedFile(file: File): boolean {
-  return isMarkdownFile(file) || isDocxFile(file);
+  return isMarkdownFile(file) || isDocxFile(file) || isHtmlFile(file);
 }
 
 /** Pure: pick the first loadable (.md or .docx) file out of a FileList/array, or null. */
@@ -96,6 +104,20 @@ export async function docxToMarkdown(buffer: ArrayBuffer): Promise<string> {
   return blocksToMarkdown(blocksFromElement(container));
 }
 
+/** Convert a raw .html file's text into Markdown, via the same shared IR
+ * `docxToMarkdown` uses (HTML -> IR -> Markdown) - just without the mammoth
+ * step, since the source is already HTML. A loaded .html file is exactly as
+ * untrusted as mammoth's docx-derived HTML, so it goes through the same
+ * `sanitizeHtml()` call before ever touching `innerHTML` (see sanitize.ts).
+ * A full `<html><head>...<body>...</body></html>` document works fine here:
+ * DOMPurify's default profile (no `WHOLE_DOCUMENT` option set) already
+ * discards the doctype/head/script/style and keeps only body content. */
+export function htmlToMarkdown(html: string): string {
+  const container = document.createElement("div");
+  container.innerHTML = sanitizeHtml(html);
+  return blocksToMarkdown(blocksFromElement(container));
+}
+
 export interface FileLoaderElements {
   dropZone: HTMLElement;
   fileInput: HTMLInputElement;
@@ -121,7 +143,7 @@ export function setupFileLoader(
     if (file) {
       void loadAndEmit(file, onLoad, onError);
     } else if (fileInput.files && fileInput.files.length > 0) {
-      onError("Please choose a .md or .docx file.");
+      onError("Please choose a .md, .docx, or .html file.");
     }
     fileInput.value = "";
   });
@@ -147,7 +169,7 @@ export function setupFileLoader(
     if (file) {
       void loadAndEmit(file, onLoad, onError);
     } else {
-      onError("Please drop a .md or .docx file.");
+      onError("Please drop a .md, .docx, or .html file.");
     }
   });
 }
@@ -158,7 +180,14 @@ async function loadAndEmit(
   onError: (message: string) => void,
 ): Promise<void> {
   try {
-    const content = isDocxFile(file) ? await docxToMarkdown(await readFileAsArrayBuffer(file)) : await readFileAsText(file);
+    let content: string;
+    if (isDocxFile(file)) {
+      content = await docxToMarkdown(await readFileAsArrayBuffer(file));
+    } else if (isHtmlFile(file)) {
+      content = htmlToMarkdown(await readFileAsText(file));
+    } else {
+      content = await readFileAsText(file);
+    }
     onLoad({ name: file.name, content });
   } catch (err) {
     onError(err instanceof Error ? err.message : "Failed to read file.");
