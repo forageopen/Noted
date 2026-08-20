@@ -12,7 +12,7 @@
     "build": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outdir=dist --external:buffer && esbuild src/sw.ts --bundle --format=esm --target=es2022 --outfile=sw.js --external:buffer"
   },
   "dependencies": {
-    "docx": "^8.5.0",
+    "docx": "^9.7.1",
     "dompurify": "^3.4.13",
     "mammoth": "^1.12.1",
     "marked": "^13.0.0"
