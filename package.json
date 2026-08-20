@@ -15,7 +15,7 @@
     "docx": "^9.7.1",
     "dompurify": "^3.4.13",
     "mammoth": "^1.12.1",
-    "marked": "^13.0.0"
+    "marked": "^18.0.9"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
