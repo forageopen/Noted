@@ -14,7 +14,7 @@
   "dependencies": {
     "docx": "^9.7.1",
     "dompurify": "^3.4.13",
-    "mammoth": "^1.12.1",
+    "mammoth": "^1.12.3",
     "marked": "^13.0.0"
   },
   "devDependencies": {
